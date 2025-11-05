@@ -1,0 +1,352 @@
+-- Roblox Player Tracker Script
+-- Paste vào StarterGui hoặc chạy qua Executor
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Variables
+local targetPlayer = nil
+local isTracking = false
+local spawnPoint = nil
+local espObjects = {}
+local rotationAngle = 0
+local rotationSpeed = 999999
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PlayerTrackerGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Create Main Menu Button (Draggable Circle)
+local menuButton = Instance.new("ImageButton")
+menuButton.Name = "MenuButton"
+menuButton.Size = UDim2.new(0, 70, 0, 70)
+menuButton.Position = UDim2.new(0.5, -35, 0.1, 0)
+menuButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+menuButton.BorderSizePixel = 0
+menuButton.Image = "rbxthumb://type=Asset&id=138603451425364&w=420&h=420"
+menuButton.ScaleType = Enum.ScaleType.Fit
+menuButton.Parent = screenGui
+
+local menuCorner = Instance.new("UICorner")
+menuCorner.CornerRadius = UDim.new(1, 0)
+menuCorner.Parent = menuButton
+
+-- Make Menu Button Draggable
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    menuButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+menuButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = menuButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+menuButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Create Main GUI Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 240, 0, 320)
+mainFrame.Position = UDim2.new(0.5, -120, 0.5, -160)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+title.BorderSizePixel = 0
+title.Text = "Player Tracker"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 16
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = title
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 28, 0, 28)
+closeButton.Position = UDim2.new(1, -32, 0, 4)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+closeButton.BorderSizePixel = 0
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 14
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+-- TP to Spawnpoint Button
+local tpButton = Instance.new("TextButton")
+tpButton.Size = UDim2.new(0, 105, 0, 32)
+tpButton.Position = UDim2.new(0, 8, 0, 43)
+tpButton.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+tpButton.BorderSizePixel = 0
+tpButton.Text = "TP Spawn"
+tpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpButton.TextSize = 13
+tpButton.Font = Enum.Font.GothamBold
+tpButton.Parent = mainFrame
+
+local tpCorner = Instance.new("UICorner")
+tpCorner.CornerRadius = UDim.new(0, 6)
+tpCorner.Parent = tpButton
+
+-- Set Spawnpoint Button
+local setSpawnButton = Instance.new("TextButton")
+setSpawnButton.Size = UDim2.new(0, 105, 0, 32)
+setSpawnButton.Position = UDim2.new(1, -113, 0, 43)
+setSpawnButton.BackgroundColor3 = Color3.fromRGB(50, 255, 150)
+setSpawnButton.BorderSizePixel = 0
+setSpawnButton.Text = "Set Spawn"
+setSpawnButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+setSpawnButton.TextSize = 13
+setSpawnButton.Font = Enum.Font.GothamBold
+setSpawnButton.Parent = mainFrame
+
+local setSpawnCorner = Instance.new("UICorner")
+setSpawnCorner.CornerRadius = UDim.new(0, 6)
+setSpawnCorner.Parent = setSpawnButton
+
+-- Player List Label
+local listLabel = Instance.new("TextLabel")
+listLabel.Size = UDim2.new(1, -16, 0, 25)
+listLabel.Position = UDim2.new(0, 8, 0, 82)
+listLabel.BackgroundTransparency = 1
+listLabel.Text = "Players:"
+listLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+listLabel.TextSize = 14
+listLabel.Font = Enum.Font.GothamBold
+listLabel.TextXAlignment = Enum.TextXAlignment.Left
+listLabel.Parent = mainFrame
+
+-- Player List ScrollingFrame
+local playerList = Instance.new("ScrollingFrame")
+playerList.Size = UDim2.new(1, -16, 1, -115)
+playerList.Position = UDim2.new(0, 8, 0, 107)
+playerList.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+playerList.BorderSizePixel = 0
+playerList.ScrollBarThickness = 5
+playerList.Parent = mainFrame
+
+local listCorner = Instance.new("UICorner")
+listCorner.CornerRadius = UDim.new(0, 6)
+listCorner.Parent = playerList
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 5)
+listLayout.Parent = playerList
+
+-- Functions
+local function createESP(character)
+    if not character then return end
+    
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local highlight = Instance.new("BoxHandleAdornment")
+            highlight.Size = part.Size
+            highlight.Adornee = part
+            highlight.AlwaysOnTop = true
+            highlight.ZIndex = 5
+            highlight.Transparency = 0.5
+            highlight.Parent = part
+            table.insert(espObjects, highlight)
+        end
+    end
+end
+
+local function removeESP()
+    for _, obj in pairs(espObjects) do
+        obj:Destroy()
+    end
+    espObjects = {}
+end
+
+local function updateESPColors()
+    local hue = (tick() * 2) % 1
+    local color = Color3.fromHSV(hue, 1, 1)
+    
+    for _, obj in pairs(espObjects) do
+        if obj and obj.Parent then
+            obj.Color3 = color
+        end
+    end
+end
+
+local function stopTracking()
+    isTracking = false
+    targetPlayer = nil
+    removeESP()
+    camera.CameraType = Enum.CameraType.Custom
+    camera.CameraSubject = player.Character and player.Character:FindFirstChild("Humanoid")
+end
+
+local function startTracking(targetPlr)
+    if isTracking and targetPlayer == targetPlr then
+        stopTracking()
+        return
+    end
+    
+    stopTracking()
+    targetPlayer = targetPlr
+    isTracking = true
+    
+    if targetPlr.Character then
+        createESP(targetPlr.Character)
+    end
+    
+    camera.CameraType = Enum.CameraType.Scriptable
+end
+
+local function updatePlayerList()
+    for _, child in pairs(playerList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local playerButton = Instance.new("TextButton")
+            playerButton.Size = UDim2.new(1, -8, 0, 32)
+            playerButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            playerButton.BorderSizePixel = 0
+            playerButton.Text = plr.Name
+            playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            playerButton.TextSize = 13
+            playerButton.Font = Enum.Font.Gotham
+            playerButton.Parent = playerList
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 5)
+            btnCorner.Parent = playerButton
+            
+            playerButton.MouseButton1Click:Connect(function()
+                startTracking(plr)
+            end)
+        end
+    end
+    
+    playerList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
+end
+
+-- Button Connections
+menuButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+    if mainFrame.Visible then
+        updatePlayerList()
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+end)
+
+setSpawnButton.MouseButton1Click:Connect(function()
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        spawnPoint = player.Character.HumanoidRootPart.CFrame
+        setSpawnButton.Text = "✓ Saved"
+        wait(1)
+        setSpawnButton.Text = "Set Spawn"
+    end
+end)
+
+tpButton.MouseButton1Click:Connect(function()
+    if spawnPoint and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = spawnPoint
+    end
+end)
+
+-- Player Added/Removed
+Players.PlayerAdded:Connect(function()
+    if mainFrame.Visible then
+        updatePlayerList()
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    if targetPlayer == plr then
+        stopTracking()
+    end
+    if mainFrame.Visible then
+        updatePlayerList()
+    end
+end)
+
+-- Main Loop
+RunService.RenderStepped:Connect(function(dt)
+    if isTracking and targetPlayer and targetPlayer.Character then
+        local targetChar = targetPlayer.Character
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        local myChar = player.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        
+        if targetRoot and myRoot then
+            -- Rotate around target
+            rotationAngle = rotationAngle + (rotationSpeed * dt)
+            local radius = 3.5
+            local offsetX = math.cos(rotationAngle) * radius
+            local offsetZ = math.sin(rotationAngle) * radius
+            
+            local newPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
+            
+            -- Nhân vật nhìn thẳng vào target
+            myRoot.CFrame = CFrame.new(newPos, targetRoot.Position)
+            
+            -- Camera ghim vào target (có thể xoay tự do nhưng luôn follow target)
+            camera.CameraSubject = targetRoot
+            camera.CameraType = Enum.CameraType.Custom
+            camera.Focus = targetRoot.CFrame
+            
+            -- Update ESP colors
+            updateESPColors()
+        else
+            stopTracking()
+        end
+    end
+end)
+
+print("Player Tracker GUI loaded!")
