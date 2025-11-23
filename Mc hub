@@ -1,0 +1,601 @@
+-- Roblox Script Hub với GUI tròn đẹp và animations
+-- Script by Claude
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+
+-- Configuration
+local ClientSource = {
+    {
+        Name = "Brookhaven RP",
+        PlaceIds = {4924922222},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/Brookhaven/refs/heads/main/Source.Lua",
+        Active = true,
+        Icon = "🏘️"
+    },
+    {
+        Name = "Speed Legends",
+        PlaceIds = {3101667897},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/SpeedLegends-/refs/heads/main/Source.lua",
+        Active = true,
+        Icon = "⚡"
+    },
+    {
+        Name = "Meme Sea",
+        PlaceIds = {10260193230},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/MemeSea/refs/heads/main/Source.lua",
+        Active = true,
+        Icon = "🌊"
+    },
+    {
+        Name = "Break In 2",
+        PlaceIds = {13864661000},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/BreakIn2/refs/heads/main/Source.lua",
+        Active = true,
+        Icon = "🏚️"
+    },
+    {
+        Name = "99% Fail",
+        PlaceIds = {7326934954},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/night/refs/heads/main/florest.lua",
+        Active = true,
+        Icon = "🎮"
+    },
+    {
+        Name = "Blox Fruits",
+        PlaceIds = {2753915549},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/BloxFruits/refs/heads/main/Source.lua",
+        Active = true,
+        Icon = "🍇"
+    },
+    {
+        Name = "Brainrot",
+        PlaceIds = {109983668079237},
+        ScriptUrl = "https://raw.githubusercontent.com/realgengar/Brainrot/refs/heads/main/Source.lua",
+        Active = true,
+        Icon = "🧠"
+    }
+}
+
+local UniversalScript = "https://raw.githubusercontent.com/realgengar/scripts/refs/heads/main/Games.Lua"
+
+-- Utility Functions
+local function createTween(object, goal, duration, easingStyle, easingDirection)
+    local tweenInfo = TweenInfo.new(
+        duration or 0.3,
+        easingStyle or Enum.EasingStyle.Quad,
+        easingDirection or Enum.EasingDirection.Out
+    )
+    return TweenService:Create(object, tweenInfo, goal)
+end
+
+local function fetchScript(url)
+    local success, response = pcall(function()
+        return game:HttpGet(url)
+    end)
+    
+    if success then
+        return response
+    else
+        warn("Failed to fetch: " .. url)
+        return nil
+    end
+end
+
+local function executeScript(url)
+    local raw = fetchScript(url)
+    if not raw then return false end
+    
+    local func, err = loadstring(raw)
+    if func then
+        local success, result = pcall(func)
+        return success
+    else
+        warn("Error loading script: " .. tostring(err))
+        return false
+    end
+end
+
+local function isCurrentGame(script)
+    if not script.Active then return false end
+    
+    for _, placeId in pairs(script.PlaceIds) do
+        if placeId == game.PlaceId then
+            return true
+        end
+    end
+    return false
+end
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ScriptHubGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Kiểm tra xem có thể add vào CoreGui không
+local success = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+
+if not success then
+    ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Floating Button (Menu tròn)
+local FloatingButton = Instance.new("ImageButton")
+FloatingButton.Name = "FloatingButton"
+FloatingButton.Size = UDim2.new(0, 70, 0, 70)
+FloatingButton.Position = UDim2.new(0, 20, 0.5, -35)
+FloatingButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+FloatingButton.BorderSizePixel = 0
+FloatingButton.Image = "rbxassetid://3926305904"
+FloatingButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
+FloatingButton.Parent = ScreenGui
+FloatingButton.Active = true
+FloatingButton.Draggable = true
+
+-- Corner cho button tròn
+local FloatingCorner = Instance.new("UICorner")
+FloatingCorner.CornerRadius = UDim.new(1, 0)
+FloatingCorner.Parent = FloatingButton
+
+-- Shadow effect cho button
+local FloatingShadow = Instance.new("ImageLabel")
+FloatingShadow.Name = "Shadow"
+FloatingShadow.BackgroundTransparency = 1
+FloatingShadow.Size = UDim2.new(1, 20, 1, 20)
+FloatingShadow.Position = UDim2.new(0, -10, 0, -10)
+FloatingShadow.Image = "rbxassetid://6014261993"
+FloatingShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+FloatingShadow.ImageTransparency = 0.5
+FloatingShadow.ZIndex = -1
+FloatingShadow.Parent = FloatingButton
+
+-- Main Frame (GUI chính)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+-- Shadow cho Main Frame
+local MainShadow = Instance.new("ImageLabel")
+MainShadow.BackgroundTransparency = 1
+MainShadow.Size = UDim2.new(1, 30, 1, 30)
+MainShadow.Position = UDim2.new(0, -15, 0, -15)
+MainShadow.Image = "rbxassetid://6014261993"
+MainShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+MainShadow.ImageTransparency = 0.3
+MainShadow.ZIndex = -1
+MainShadow.Parent = MainFrame
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 50)
+Header.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 15)
+HeaderCorner.Parent = Header
+
+local HeaderBottom = Instance.new("Frame")
+HeaderBottom.Size = UDim2.new(1, 0, 0, 15)
+HeaderBottom.Position = UDim2.new(0, 0, 1, -15)
+HeaderBottom.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+HeaderBottom.BorderSizePixel = 0
+HeaderBottom.Parent = Header
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -100, 1, 0)
+Title.Position = UDim2.new(0, 20, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🎮 Script Hub Premium"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+-- Close Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 40, 0, 40)
+CloseButton.Position = UDim2.new(1, -45, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+CloseButton.Text = "✕"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 20
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.BorderSizePixel = 0
+CloseButton.Parent = Header
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(1, 0)
+CloseCorner.Parent = CloseButton
+
+-- Content Frame
+local ContentFrame = Instance.new("ScrollingFrame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, -20, 1, -70)
+ContentFrame.Position = UDim2.new(0, 10, 0, 60)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.BorderSizePixel = 0
+ContentFrame.ScrollBarThickness = 6
+ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(138, 43, 226)
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ContentFrame.Parent = MainFrame
+
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContentLayout.Padding = UDim.new(0, 10)
+ContentLayout.Parent = ContentFrame
+
+local ContentPadding = Instance.new("UIPadding")
+ContentPadding.PaddingTop = UDim.new(0, 5)
+ContentPadding.PaddingBottom = UDim.new(0, 5)
+ContentPadding.Parent = ContentFrame
+
+-- Tạo Info Card
+local InfoCard = Instance.new("Frame")
+InfoCard.Name = "InfoCard"
+InfoCard.Size = UDim2.new(1, 0, 0, 80)
+InfoCard.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+InfoCard.BorderSizePixel = 0
+InfoCard.Parent = ContentFrame
+
+local InfoCorner = Instance.new("UICorner")
+InfoCorner.CornerRadius = UDim.new(0, 10)
+InfoCorner.Parent = InfoCard
+
+local InfoText = Instance.new("TextLabel")
+InfoText.Size = UDim2.new(1, -20, 1, -20)
+InfoText.Position = UDim2.new(0, 10, 0, 10)
+InfoText.BackgroundTransparency = 1
+InfoText.Text = string.format("🎯 Current Game: %s\n📍 Place ID: %d", 
+    game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Unknown",
+    game.PlaceId
+)
+InfoText.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoText.TextSize = 14
+InfoText.Font = Enum.Font.Gotham
+InfoText.TextWrapped = true
+InfoText.TextYAlignment = Enum.TextYAlignment.Top
+InfoText.Parent = InfoCard
+
+-- Function để tạo script button
+local function createScriptButton(scriptData, index)
+    local isForThisGame = isCurrentGame(scriptData)
+    
+    local Button = Instance.new("TextButton")
+    Button.Name = scriptData.Name
+    Button.Size = UDim2.new(1, 0, 0, 60)
+    Button.BackgroundColor3 = isForThisGame and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(52, 73, 94)
+    Button.BorderSizePixel = 0
+    Button.Text = ""
+    Button.AutoButtonColor = false
+    Button.Parent = ContentFrame
+    
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 10)
+    ButtonCorner.Parent = Button
+    
+    -- Icon
+    local Icon = Instance.new("TextLabel")
+    Icon.Size = UDim2.new(0, 40, 0, 40)
+    Icon.Position = UDim2.new(0, 10, 0.5, -20)
+    Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Icon.BackgroundTransparency = 0.9
+    Icon.Text = scriptData.Icon
+    Icon.TextSize = 24
+    Icon.Font = Enum.Font.GothamBold
+    Icon.BorderSizePixel = 0
+    Icon.Parent = Button
+    
+    local IconCorner = Instance.new("UICorner")
+    IconCorner.CornerRadius = UDim.new(1, 0)
+    IconCorner.Parent = Icon
+    
+    -- Text Container
+    local TextContainer = Instance.new("Frame")
+    TextContainer.Size = UDim2.new(1, -140, 1, 0)
+    TextContainer.Position = UDim2.new(0, 60, 0, 0)
+    TextContainer.BackgroundTransparency = 1
+    TextContainer.Parent = Button
+    
+    local NameLabel = Instance.new("TextLabel")
+    NameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Text = scriptData.Name
+    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NameLabel.TextSize = 16
+    NameLabel.Font = Enum.Font.GothamBold
+    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    NameLabel.Parent = TextContainer
+    
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    StatusLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = isForThisGame and "✅ Compatible" or "ℹ️ Other Game"
+    StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    StatusLabel.TextSize = 12
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Parent = TextContainer
+    
+    -- Execute Button
+    local ExecuteBtn = Instance.new("TextButton")
+    ExecuteBtn.Size = UDim2.new(0, 70, 0, 40)
+    ExecuteBtn.Position = UDim2.new(1, -80, 0.5, -20)
+    ExecuteBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+    ExecuteBtn.Text = "Execute"
+    ExecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ExecuteBtn.TextSize = 14
+    ExecuteBtn.Font = Enum.Font.GothamBold
+    ExecuteBtn.BorderSizePixel = 0
+    ExecuteBtn.Parent = Button
+    
+    local ExecCorner = Instance.new("UICorner")
+    ExecCorner.CornerRadius = UDim.new(0, 8)
+    ExecCorner.Parent = ExecuteBtn
+    
+    -- Hover effect cho button chính
+    Button.MouseEnter:Connect(function()
+        createTween(Button, {BackgroundColor3 = isForThisGame and Color3.fromRGB(56, 214, 123) or Color3.fromRGB(62, 83, 104)}, 0.2):Play()
+    end)
+    
+    Button.MouseLeave:Connect(function()
+        createTween(Button, {BackgroundColor3 = isForThisGame and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(52, 73, 94)}, 0.2):Play()
+    end)
+    
+    -- Hover effect cho execute button
+    ExecuteBtn.MouseEnter:Connect(function()
+        createTween(ExecuteBtn, {BackgroundColor3 = Color3.fromRGB(155, 89, 182)}, 0.2):Play()
+        createTween(ExecuteBtn, {Size = UDim2.new(0, 75, 0, 43)}, 0.2, Enum.EasingStyle.Back):Play()
+    end)
+    
+    ExecuteBtn.MouseLeave:Connect(function()
+        createTween(ExecuteBtn, {BackgroundColor3 = Color3.fromRGB(138, 43, 226)}, 0.2):Play()
+        createTween(ExecuteBtn, {Size = UDim2.new(0, 70, 0, 40)}, 0.2):Play()
+    end)
+    
+    -- Execute functionality
+    ExecuteBtn.MouseButton1Click:Connect(function()
+        ExecuteBtn.Text = "..."
+        
+        -- Animation khi execute
+        local originalColor = ExecuteBtn.BackgroundColor3
+        createTween(ExecuteBtn, {BackgroundColor3 = Color3.fromRGB(46, 204, 113)}, 0.3):Play()
+        
+        task.spawn(function()
+            local success = executeScript(scriptData.ScriptUrl)
+            wait(0.5)
+            
+            if success then
+                ExecuteBtn.Text = "✓"
+                ExecuteBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+            else
+                ExecuteBtn.Text = "✗"
+                ExecuteBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+            end
+            
+            wait(2)
+            ExecuteBtn.Text = "Execute"
+            createTween(ExecuteBtn, {BackgroundColor3 = originalColor}, 0.3):Play()
+        end)
+    end)
+    
+    return Button
+end
+
+-- Universal Script Button
+local UniversalButton = Instance.new("TextButton")
+UniversalButton.Name = "UniversalScript"
+UniversalButton.Size = UDim2.new(1, 0, 0, 70)
+UniversalButton.BackgroundColor3 = Color3.fromRGB(230, 126, 34)
+UniversalButton.BorderSizePixel = 0
+UniversalButton.Text = ""
+UniversalButton.AutoButtonColor = false
+UniversalButton.Parent = ContentFrame
+
+local UnivCorner = Instance.new("UICorner")
+UnivCorner.CornerRadius = UDim.new(0, 10)
+UnivCorner.Parent = UniversalButton
+
+local UnivIcon = Instance.new("TextLabel")
+UnivIcon.Size = UDim2.new(0, 50, 0, 50)
+UnivIcon.Position = UDim2.new(0, 10, 0.5, -25)
+UnivIcon.BackgroundTransparency = 1
+UnivIcon.Text = "🌐"
+UnivIcon.TextSize = 32
+UnivIcon.Parent = UniversalButton
+
+local UnivText = Instance.new("TextLabel")
+UnivText.Size = UDim2.new(1, -180, 1, 0)
+UnivText.Position = UDim2.new(0, 70, 0, 0)
+UnivText.BackgroundTransparency = 1
+UnivText.Text = "Universal Script\nWorks on all games"
+UnivText.TextColor3 = Color3.fromRGB(255, 255, 255)
+UnivText.TextSize = 16
+UnivText.Font = Enum.Font.GothamBold
+UnivText.TextXAlignment = Enum.TextXAlignment.Left
+UnivText.Parent = UniversalButton
+
+local UnivExecBtn = Instance.new("TextButton")
+UnivExecBtn.Size = UDim2.new(0, 90, 0, 45)
+UnivExecBtn.Position = UDim2.new(1, -100, 0.5, -22.5)
+UnivExecBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+UnivExecBtn.Text = "Execute"
+UnivExecBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+UnivExecBtn.TextSize = 16
+UnivExecBtn.Font = Enum.Font.GothamBold
+UnivExecBtn.BorderSizePixel = 0
+UnivExecBtn.Parent = UniversalButton
+
+local UnivExecCorner = Instance.new("UICorner")
+UnivExecCorner.CornerRadius = UDim.new(0, 10)
+UnivExecCorner.Parent = UnivExecBtn
+
+-- Universal button effects
+UniversalButton.MouseEnter:Connect(function()
+    createTween(UniversalButton, {BackgroundColor3 = Color3.fromRGB(240, 136, 44)}, 0.2):Play()
+end)
+
+UniversalButton.MouseLeave:Connect(function()
+    createTween(UniversalButton, {BackgroundColor3 = Color3.fromRGB(230, 126, 34)}, 0.2):Play()
+end)
+
+UnivExecBtn.MouseEnter:Connect(function()
+    createTween(UnivExecBtn, {BackgroundColor3 = Color3.fromRGB(155, 89, 182)}, 0.2):Play()
+    createTween(UnivExecBtn, {Size = UDim2.new(0, 95, 0, 48)}, 0.2, Enum.EasingStyle.Back):Play()
+end)
+
+UnivExecBtn.MouseLeave:Connect(function()
+    createTween(UnivExecBtn, {BackgroundColor3 = Color3.fromRGB(138, 43, 226)}, 0.2):Play()
+    createTween(UnivExecBtn, {Size = UDim2.new(0, 90, 0, 45)}, 0.2):Play()
+end)
+
+UnivExecBtn.MouseButton1Click:Connect(function()
+    UnivExecBtn.Text = "..."
+    
+    task.spawn(function()
+        local success = executeScript(UniversalScript)
+        wait(0.5)
+        
+        if success then
+            UnivExecBtn.Text = "✓ Done"
+            UnivExecBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+        else
+            UnivExecBtn.Text = "✗ Error"
+            UnivExecBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+        end
+        
+        wait(2)
+        UnivExecBtn.Text = "Execute"
+        createTween(UnivExecBtn, {BackgroundColor3 = Color3.fromRGB(138, 43, 226)}, 0.3):Play()
+    end)
+end)
+
+-- Tạo các button cho từng script
+for i, scriptData in ipairs(ClientSource) do
+    createScriptButton(scriptData, i)
+end
+
+-- Update canvas size
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
+ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Draggable Main Frame
+local dragging = false
+local dragInput, mousePos, framePos
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        mousePos = input.Position
+        framePos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - mousePos
+        createTween(MainFrame, {
+            Position = UDim2.new(
+                framePos.X.Scale,
+                framePos.X.Offset + delta.X,
+                framePos.Y.Scale,
+                framePos.Y.Offset + delta.Y
+            )
+        }, 0.1, Enum.EasingStyle.Linear):Play()
+    end
+end)
+
+-- Toggle GUI
+local isOpen = false
+
+local function toggleGUI()
+    isOpen = not isOpen
+    
+    if isOpen then
+        MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
+        
+        -- Rotation animation cho floating button
+        createTween(FloatingButton, {Rotation = 180}, 0.4, Enum.EasingStyle.Back):Play()
+        
+        -- Open animation
+        createTween(MainFrame, {
+            Size = UDim2.new(0, 500, 0, 600)
+        }, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+    else
+        -- Close animation
+        createTween(FloatingButton, {Rotation = 0}, 0.4, Enum.EasingStyle.Back):Play()
+        
+        createTween(MainFrame, {
+            Size = UDim2.new(0, 0, 0, 0)
+        }, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In):Play()
+        
+        wait(0.4)
+        MainFrame.Visible = false
+    end
+end
+
+-- Button events
+FloatingButton.MouseButton1Click:Connect(toggleGUI)
+CloseButton.MouseButton1Click:Connect(toggleGUI)
+
+-- Hover effect cho floating button
+FloatingButton.MouseEnter:Connect(function()
+    createTween(FloatingButton, {
+        Size = UDim2.new(0, 80, 0, 80),
+        BackgroundColor3 = Color3.fromRGB(155, 89, 182)
+    }, 0.2, Enum.EasingStyle.Back):Play()
+end)
+
+FloatingButton.MouseLeave:Connect(function()
+    createTween(FloatingButton, {
+        Size = UDim2.new(0, 70, 0, 70),
+        BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+    }, 0.2):Play()
+end)
+
+-- Close button hover
+CloseButton.MouseEnter:Connect(function()
+    createTween(CloseButton, {
+        BackgroundColor3 = Color3.fromRGB(192, 57, 43),
+        Rotation = 90
+    }, 0.2):Play()
+end)
+
+CloseButt
