@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Bytebeat Playground Full</title>
+<style>
+body {
+    font-family: monospace;
+    background-color: #121212;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+}
+textarea {
+    width: 80%;
+    height: 150px;
+    background-color: #1e1e1e;
+    color: #0f0;
+    font-size: 14px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    resize: none;
+}
+button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #ff3c3c;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+button:hover { background-color: #ff1a1a; }
+#output {
+    margin-top: 20px;
+    width: 80%;
+    min-height: 100px;
+    background-color: #222;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: left;
+}
+#visualizer {
+    margin-top: 20px;
+    width: 80%;
+    height: 200px;
+    background-color: #000;
+    border-radius: 8px;
+}
+label {
+    display: inline-block;
+    margin: 10px;
+}
+input[type=range] {
+    width: 200px;
+}
+</style>
+</head>
+<body>
+<h1>Bytebeat Playground Full</h1>
+<textarea id="codeInput">
+// Ví dụ code bytebeat: 
+// (t>>9&1+t>>12&7?0:9001/(t%4096)-t/9&8?255:0)
+</textarea>
+<br>
+<button onclick="runCode()">Run</button>
+<button onclick="stopCode()">Stop</button>
+<button onclick="deleteCode()">Delete</button>
+
+<div>
+    <label>Speed: <span id="speedVal">1</span>x</label>
+    <input type="range" id="speedRange" min="0.1" max="5" step="0.1" value="1" oninput="updateSpeed(this.value)">
+</div>
+
+<div id="output">Màn hình âm thanh sẽ hiển thị ở đây...</div>
+<canvas id="visualizer"></canvas>
+
+<script>
+let audioCtx = null;
+let scriptNode = null;
+let analyser, dataArray, bufferLength;
+let t = 0;
+let speed = 1;
+
+const canvas = document.getElementById('visualizer');
+const canvasCtx = canvas.getContext('2d');
+
+function updateSpeed(val){
+    speed = parseFloat(val);
+    document.getElementById('speedVal').innerText = speed;
+}
+
+function drawVisualizer() {
+    if(!analyser) return;
+    requestAnimationFrame(drawVisualizer);
+    analyser.getByteTimeDomainData(dataArray);
+
+    canvasCtx.fillStyle = '#000';
+    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = '#0f0';
+    canvasCtx.beginPath();
+
+    const sliceWidth = canvas.width * 1.0 / bufferLength;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height/2;
+        if(i === 0) {
+            canvasCtx.moveTo(x, y);
+        } else {
+            canvasCtx.lineTo(x, y);
+        }
+        x += sliceWidth;
+    }
+    canvasCtx.lineTo(canvas.width, canvas.height/2);
+    canvasCtx.stroke();
+}
+
+function runCode() {
+    const userCode = document.getElementById('codeInput').value;
+    if (!userCode.trim()) return;
+
+    stopCode();
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.resume().then(() => {
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        bufferLength = analyser.fftSize;
+        dataArray = new Uint8Array(bufferLength);
+
+        scriptNode = audioCtx.createScriptProcessor(4096, 0, 1);
+        t = 0;
+        scriptNode.onaudioprocess = function(e) {
+            const output = e.outputBuffer.getChannelData(0);
+            for(let i=0;i<output.length;i++){
+                try{
+                    let val = eval(userCode); // bytebeat
+                    output[i] = ((val & 255)/128.0 -1);
+                    t += speed;
+                } catch(err){
+                    output[i] = 0;
+                }
+            }
+        };
+
+        scriptNode.connect(analyser);
+        analyser.connect(audioCtx.destination);
+
+        drawVisualizer();
+
+        document.getElementById('output').innerText = 'Đang chạy bytebeat...';
+    });
+}
+
+function stopCode() {
+    if(scriptNode) scriptNode.disconnect();
+    if(analyser) analyser.disconnect();
+    if(audioCtx) audioCtx.close();
+    audioCtx = null;
+    scriptNode = null;
+    analyser = null;
+}
+
+function deleteCode() {
+    stopCode();
+    document.getElementById('codeInput').value = '';
+    document.getElementById('output').innerText = 'Màn hình âm thanh sẽ hiển thị ở đây...';
+}
+</script>
+</body>
+</html>
