@@ -1,68 +1,60 @@
--- Tên tập lệnh: PlayerTrackerScript (Full + FaceLock)
+-- Tên tập lệnh: PlayerTrackerScript Full + FaceLock + Camera
 -- Dán vào StarterGui dưới dạng LocalScript
 
---// SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
---// VARIABLES
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
+-- STATE
 local targetPlayer = nil
 local isTracking = false
 local faceLock = false
 local spawnPoint = nil
 local espObjects = {}
 local rotationAngle = 0
-local rotationSpeed = 99999999999999 -- tốc độ orbit cực nhanh
+local rotationSpeed = 99999999999999
 
---// GUI SETUP
+-- GUI
 local playerGui = localPlayer:WaitForChild("PlayerGui")
-local screenGui = Instance.new("ScreenGui")
+local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "PlayerTrackerGUI"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = playerGui
 
--- Menu button (circle)
-local menuButton = Instance.new("ImageButton")
+-- Menu button
+local menuButton = Instance.new("ImageButton", screenGui)
 menuButton.Name = "MenuButton"
-menuButton.Size = UDim2.new(0, 70, 0, 70)
+menuButton.Size = UDim2.new(0,70,0,70)
 menuButton.Position = UDim2.new(0,5,0.5,-35)
 menuButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
 menuButton.BorderSizePixel = 0
 menuButton.Image = "rbxthumb://type=Asset&id=138603451425364&w=420&h=420"
 menuButton.ScaleType = Enum.ScaleType.Fit
-menuButton.Parent = screenGui
 Instance.new("UICorner", menuButton).CornerRadius = UDim.new(1,0)
 
--- Disable dragging lỗi (giữ cố định)
--- Nếu muốn di chuyển, chỉ kéo title frame bên trong
-
 -- Main frame
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
+local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Size = UDim2.new(0,240,0,320)
 mainFrame.Position = UDim2.new(0.5,-120,0.5,-160)
 mainFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
-mainFrame.Parent = screenGui
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,12)
 
--- Title bar
+-- Title
 local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1,0,0,35)
-title.BackgroundColor3 = Color3.fromRGB(45,45,45)
-title.BorderSizePixel = 0
 title.Text = "Trình theo dõi Người chơi"
 title.TextColor3 = Color3.fromRGB(255,255,255)
-title.TextSize = 16
+title.BackgroundColor3 = Color3.fromRGB(45,45,45)
+title.BorderSizePixel = 0
 title.Font = Enum.Font.GothamBold
+title.TextSize = 16
 Instance.new("UICorner", title).CornerRadius = UDim.new(0,12)
 
 -- Close button
@@ -77,7 +69,7 @@ closeButton.TextSize = 14
 closeButton.Font = Enum.Font.GothamBold
 Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0,6)
 
--- TP spawn button
+-- TP / Set Spawn buttons
 local tpButton = Instance.new("TextButton", mainFrame)
 tpButton.Size = UDim2.new(0,105,0,32)
 tpButton.Position = UDim2.new(0,8,0,43)
@@ -89,7 +81,6 @@ tpButton.TextSize = 13
 tpButton.Font = Enum.Font.GothamBold
 Instance.new("UICorner", tpButton).CornerRadius = UDim.new(0,6)
 
--- Set spawn button
 local setSpawnButton = Instance.new("TextButton", mainFrame)
 setSpawnButton.Size = UDim2.new(0,105,0,32)
 setSpawnButton.Position = UDim2.new(1,-113,0,43)
@@ -101,7 +92,7 @@ setSpawnButton.TextSize = 13
 setSpawnButton.Font = Enum.Font.GothamBold
 Instance.new("UICorner", setSpawnButton).CornerRadius = UDim.new(0,6)
 
--- Player list label
+-- Player list
 local listLabel = Instance.new("TextLabel", mainFrame)
 listLabel.Size = UDim2.new(1,-16,0,25)
 listLabel.Position = UDim2.new(0,8,0,82)
@@ -112,55 +103,50 @@ listLabel.TextSize = 14
 listLabel.Font = Enum.Font.GothamBold
 listLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Player scrolling list
 local playerList = Instance.new("ScrollingFrame", mainFrame)
-playerList.Size = UDim2.new(1,-16,1,-115)
 playerList.Position = UDim2.new(0,8,0,107)
+playerList.Size = UDim2.new(1,-16,1,-115)
 playerList.BackgroundColor3 = Color3.fromRGB(25,25,25)
 playerList.BorderSizePixel = 0
 playerList.ScrollBarThickness = 5
-local listCorner = Instance.new("UICorner", playerList)
-listCorner.CornerRadius = UDim.new(0,6)
+Instance.new("UICorner", playerList).CornerRadius = UDim.new(0,6)
 local listLayout = Instance.new("UIListLayout", playerList)
 listLayout.Padding = UDim.new(0,5)
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	playerList.CanvasSize = UDim2.new(0,0,0,listLayout.AbsoluteContentSize.Y)
+end)
 
---// ESP FUNCTIONS
+-- ESP
 local function createESP(character)
 	if not character then return end
-	for _,obj in pairs(espObjects) do
-		if obj and obj.Parent then obj:Destroy() end
-	end
+	for _,obj in pairs(espObjects) do if obj.Parent then obj:Destroy() end end
 	espObjects = {}
 	for _,part in pairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
-			local highlight = Instance.new("BoxHandleAdornment")
-			highlight.Size = part.Size
-			highlight.Adornee = part
-			highlight.AlwaysOnTop = true
-			highlight.ZIndex = 5
-			highlight.Transparency = 0.5
-			highlight.Parent = part
-			table.insert(espObjects, highlight)
+			local h = Instance.new("BoxHandleAdornment")
+			h.Size = part.Size
+			h.Adornee = part
+			h.AlwaysOnTop = true
+			h.ZIndex = 5
+			h.Transparency = 0.5
+			h.Parent = part
+			table.insert(espObjects,h)
 		end
 	end
 end
 
 local function removeESP()
-	for _,obj in pairs(espObjects) do
-		if obj and obj.Parent then obj:Destroy() end
-	end
+	for _,obj in pairs(espObjects) do if obj.Parent then obj:Destroy() end end
 	espObjects = {}
 end
 
 local function updateESPColors()
 	local hue = (tick()*0.1)%1
 	local color = Color3.fromHSV(hue,1,1)
-	for _,obj in pairs(espObjects) do
-		if obj and obj.Parent then obj.Color3 = color end
-	end
+	for _,obj in pairs(espObjects) do if obj.Parent then obj.Color3 = color end end
 end
 
---// TRACKING FUNCTIONS
+-- Tracking
 local function stopTracking()
 	isTracking = false
 	targetPlayer = nil
@@ -168,10 +154,9 @@ local function stopTracking()
 	removeESP()
 	camera.CameraType = Enum.CameraType.Custom
 	localPlayer.CameraMode = Enum.CameraMode.Classic
-	if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
-		camera.CameraSubject = localPlayer.Character:FindFirstChild("Humanoid")
-	else
-		camera.CameraSubject = localPlayer
+	if localPlayer.Character then
+		local hrp = localPlayer.Character:FindFirstChild("Humanoid")
+		camera.CameraSubject = hrp or localPlayer
 	end
 end
 
@@ -184,14 +169,12 @@ local function startTracking(plr)
 	localPlayer.CameraMode = Enum.CameraMode.Classic
 end
 
---// UPDATE PLAYER LIST
+-- Update player list
 local function updatePlayerList()
-	for _,v in pairs(playerList:GetChildren()) do
-		if v:IsA("TextButton") then v:Destroy() end
-	end
+	for _,v in pairs(playerList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
 	for _,plr in pairs(Players:GetPlayers()) do
 		if plr ~= localPlayer and plr.Character then
-			local btn = Instance.new("TextButton", playerList)
+			local btn = Instance.new("TextButton",playerList)
 			btn.Size = UDim2.new(1,-8,0,32)
 			btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
 			btn.BorderSizePixel = 0
@@ -200,14 +183,8 @@ local function updatePlayerList()
 			btn.TextSize = 13
 			btn.Font = Enum.Font.Gotham
 			Instance.new("UICorner", btn).CornerRadius = UDim.new(0,5)
-
 			btn.MouseButton1Click:Connect(function()
-				-- toggle face lock
-				if targetPlayer == plr and faceLock then
-					stopTracking()
-				else
-					startTracking(plr)
-				end
+				if targetPlayer==plr and faceLock then stopTracking() else startTracking(plr) end
 			end)
 		end
 	end
@@ -215,13 +192,10 @@ local function updatePlayerList()
 end
 
 Players.PlayerAdded:Connect(updatePlayerList)
-Players.PlayerRemoving:Connect(function(plr)
-	if targetPlayer == plr then stopTracking() end
-	updatePlayerList()
-end)
+Players.PlayerRemoving:Connect(function(plr) if targetPlayer==plr then stopTracking() end updatePlayerList() end)
 updatePlayerList()
 
---// GUI BUTTONS
+-- GUI buttons
 menuButton.MouseButton1Click:Connect(function()
 	mainFrame.Visible = not mainFrame.Visible
 	if mainFrame.Visible then updatePlayerList() end
@@ -230,23 +204,14 @@ closeButton.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
 
 setSpawnButton.MouseButton1Click:Connect(function()
 	local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if root then
-		spawnPoint = root.CFrame
-		setSpawnButton.Text = "✓ Đã lưu"
-		wait(1)
-		setSpawnButton.Text = "Đặt Spawn"
-	end
+	if root then spawnPoint=root.CFrame setSpawnButton.Text="✓ Đã lưu" wait(1) setSpawnButton.Text="Đặt Spawn" end
 end)
 tpButton.MouseButton1Click:Connect(function()
 	local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if root and spawnPoint then
-		root.CFrame = spawnPoint
-	else
-		warn("Chưa đặt spawn hoặc chưa load nhân vật.")
-	end
+	if root and spawnPoint then root.CFrame=spawnPoint else warn("Chưa đặt spawn hoặc chưa load nhân vật.") end
 end)
 
---// MAIN LOOP
+-- Main loop
 RunService.RenderStepped:Connect(function(dt)
 	if isTracking and targetPlayer then
 		local myChar = localPlayer.Character
@@ -256,7 +221,7 @@ RunService.RenderStepped:Connect(function(dt)
 		local trgRoot = trgChar:FindFirstChild("HumanoidRootPart")
 		if not myRoot or not trgRoot then stopTracking() return end
 
-		-- ORBIT (tốc độ cực nhanh)
+		-- ORBIT
 		rotationAngle = rotationAngle + (rotationSpeed*dt)
 		local radius = 3.5
 		local offsetX = math.cos(rotationAngle)*radius
@@ -264,9 +229,10 @@ RunService.RenderStepped:Connect(function(dt)
 		local newPos = trgRoot.Position + Vector3.new(offsetX,0,offsetZ)
 		myRoot.CFrame = CFrame.new(newPos, trgRoot.Position)
 
-		-- FACE LOCK
+		-- FACE LOCK + CAMERA
 		if faceLock then
 			myRoot.CFrame = CFrame.new(myRoot.Position, trgRoot.Position)
+			camera.CFrame = CFrame.new(myRoot.Position + Vector3.new(0,5,-5), trgRoot.Position)
 		end
 
 		-- ESP
@@ -274,7 +240,6 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
---// RESET CAMERA ON RESPAWN
 localPlayer.CharacterAdded:Connect(function()
 	wait(0.1)
 	if not isTracking then
@@ -282,4 +247,4 @@ localPlayer.CharacterAdded:Connect(function()
 	end
 end)
 
-print("Player Tracker Full Loaded ✅")
+print("Player Tracker FULL + FaceLock + Camera Loaded ✅")
