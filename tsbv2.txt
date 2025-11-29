@@ -1,16 +1,12 @@
--- Tên tập lệnh: PlayerTrackerScript Full + FaceLock + Camera
--- Dán vào StarterGui dưới dạng LocalScript
-
+-- PlayerTrackerScript FULL + Draggable Menu + FaceLock + Camera tự do + ESP
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- STATE
 local targetPlayer = nil
 local isTracking = false
 local faceLock = false
@@ -26,7 +22,7 @@ screenGui.Name = "PlayerTrackerGUI"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Menu button
+-- Menu button (Draggable)
 local menuButton = Instance.new("ImageButton", screenGui)
 menuButton.Name = "MenuButton"
 menuButton.Size = UDim2.new(0,70,0,70)
@@ -36,6 +32,33 @@ menuButton.BorderSizePixel = 0
 menuButton.Image = "rbxthumb://type=Asset&id=138603451425364&w=420&h=420"
 menuButton.ScaleType = Enum.ScaleType.Fit
 Instance.new("UICorner", menuButton).CornerRadius = UDim.new(1,0)
+
+-- Drag logic
+local dragging = false
+local dragStart
+local startPos
+
+menuButton.InputBegan:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = menuButton.Position
+		input.Changed:Connect(function()
+			if input.UserInputState==Enum.UserInputState.End then
+				dragging=false
+			end
+		end)
+	end
+end)
+
+menuButton.InputChanged:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
+		if dragging then
+			local delta = input.Position - dragStart
+			menuButton.Position = UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
+		end
+	end
+end)
 
 -- Main frame
 local mainFrame = Instance.new("Frame", screenGui)
@@ -69,7 +92,7 @@ closeButton.TextSize = 14
 closeButton.Font = Enum.Font.GothamBold
 Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0,6)
 
--- TP / Set Spawn buttons
+-- TP / Set Spawn
 local tpButton = Instance.new("TextButton", mainFrame)
 tpButton.Size = UDim2.new(0,105,0,32)
 tpButton.Position = UDim2.new(0,8,0,43)
@@ -116,7 +139,7 @@ listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	playerList.CanvasSize = UDim2.new(0,0,0,listLayout.AbsoluteContentSize.Y)
 end)
 
--- ESP
+-- ESP functions
 local function createESP(character)
 	if not character then return end
 	for _,obj in pairs(espObjects) do if obj.Parent then obj:Destroy() end end
@@ -169,7 +192,6 @@ local function startTracking(plr)
 	localPlayer.CameraMode = Enum.CameraMode.Classic
 end
 
--- Update player list
 local function updatePlayerList()
 	for _,v in pairs(playerList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
 	for _,plr in pairs(Players:GetPlayers()) do
@@ -201,7 +223,6 @@ menuButton.MouseButton1Click:Connect(function()
 	if mainFrame.Visible then updatePlayerList() end
 end)
 closeButton.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
-
 setSpawnButton.MouseButton1Click:Connect(function()
 	local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if root then spawnPoint=root.CFrame setSpawnButton.Text="✓ Đã lưu" wait(1) setSpawnButton.Text="Đặt Spawn" end
@@ -221,21 +242,22 @@ RunService.RenderStepped:Connect(function(dt)
 		local trgRoot = trgChar:FindFirstChild("HumanoidRootPart")
 		if not myRoot or not trgRoot then stopTracking() return end
 
-		-- ORBIT
 		rotationAngle = rotationAngle + (rotationSpeed*dt)
 		local radius = 3.5
 		local offsetX = math.cos(rotationAngle)*radius
 		local offsetZ = math.sin(rotationAngle)*radius
 		local newPos = trgRoot.Position + Vector3.new(offsetX,0,offsetZ)
-		myRoot.CFrame = CFrame.new(newPos, trgRoot.Position)
 
-		-- FACE LOCK + CAMERA
 		if faceLock then
-			myRoot.CFrame = CFrame.new(myRoot.Position, trgRoot.Position)
-			camera.CFrame = CFrame.new(myRoot.Position + Vector3.new(0,5,-5), trgRoot.Position)
+			myRoot.CFrame = CFrame.new(newPos, trgRoot.Position)
+		else
+			myRoot.CFrame = CFrame.new(newPos, newPos + myRoot.CFrame.LookVector)
 		end
 
-		-- ESP
+		if camera.CameraType ~= Enum.CameraType.Custom then
+			camera.CameraType = Enum.CameraType.Custom
+		end
+
 		updateESPColors()
 	end
 end)
@@ -247,4 +269,4 @@ localPlayer.CharacterAdded:Connect(function()
 	end
 end)
 
-print("Player Tracker FULL + FaceLock + Camera Loaded ✅")
+print("Player Tracker FULL ✅ GUI + ESP + Orbit + FaceLock + Camera tự do Loaded")
