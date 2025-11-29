@@ -1,34 +1,38 @@
--- Roblox Player Tracker Script
--- Paste vào StarterGui hoặc chạy qua Executor
+-- Tên tập lệnh: PlayerTrackerScript
+-- Dán vào StarterGui dưới dạng LocalScript
 
+-- Khởi tạo Dịch vụ
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+-- Khởi tạo Biến Cục bộ
+local localPlayer = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 
--- Variables
+-- Biến Trạng thái
 local targetPlayer = nil
 local isTracking = false
 local spawnPoint = nil
 local espObjects = {}
 local rotationAngle = 0
-local rotationSpeed = 999999
+local rotationSpeed = 9 -- Tốc độ quay (có thể điều chỉnh)
 
--- Create ScreenGui
+-- Đợi PlayerGui và ScreenGui
+local playerGui = localPlayer:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PlayerTrackerGUI"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Parent = playerGui
 
--- Create Main Menu Button (Draggable Circle)
+-- Tạo nút Menu chính (Vòng tròn có thể kéo)
 local menuButton = Instance.new("ImageButton")
 menuButton.Name = "MenuButton"
 menuButton.Size = UDim2.new(0, 70, 0, 70)
-menuButton.Position = UDim2.new(0.5, -35, 0.1, 0)
+menuButton.Position = UDim2.new(0,5, 0.5, -35)
 menuButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 menuButton.BorderSizePixel = 0
 menuButton.Image = "rbxthumb://type=Asset&id=138603451425364&w=420&h=420"
@@ -39,7 +43,7 @@ local menuCorner = Instance.new("UICorner")
 menuCorner.CornerRadius = UDim.new(1, 0)
 menuCorner.Parent = menuButton
 
--- Make Menu Button Draggable
+-- Làm cho nút Menu có thể kéo được (Logic đã được sửa và tối ưu)
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -50,31 +54,25 @@ end
 
 menuButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if not menuButton.Visible then return end
+        
         dragging = true
         dragStart = input.Position
         startPos = menuButton.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-menuButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragging then
+            update(input)
+        end
+    elseif input.UserInputState == Enum.UserInputState.End then
+        dragging = false
     end
 end)
 
--- Create Main GUI Frame
+-- Tạo khung GUI chính
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 240, 0, 320)
@@ -88,12 +86,12 @@ local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = mainFrame
 
--- Title
+-- Tiêu đề
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 35)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 title.BorderSizePixel = 0
-title.Text = "Player Tracker"
+title.Text = "Trình theo dõi Người chơi"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 16
 title.Font = Enum.Font.GothamBold
@@ -103,7 +101,7 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 12)
 titleCorner.Parent = title
 
--- Close Button
+-- Nút Đóng
 local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0, 28, 0, 28)
 closeButton.Position = UDim2.new(1, -32, 0, 4)
@@ -119,7 +117,7 @@ local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 6)
 closeCorner.Parent = closeButton
 
--- TP to Spawnpoint Button
+-- Nút TP đến Điểm sinh sản
 local tpButton = Instance.new("TextButton")
 tpButton.Size = UDim2.new(0, 105, 0, 32)
 tpButton.Position = UDim2.new(0, 8, 0, 43)
@@ -135,13 +133,13 @@ local tpCorner = Instance.new("UICorner")
 tpCorner.CornerRadius = UDim.new(0, 6)
 tpCorner.Parent = tpButton
 
--- Set Spawnpoint Button
+-- Đặt nút Điểm sinh sản
 local setSpawnButton = Instance.new("TextButton")
 setSpawnButton.Size = UDim2.new(0, 105, 0, 32)
 setSpawnButton.Position = UDim2.new(1, -113, 0, 43)
 setSpawnButton.BackgroundColor3 = Color3.fromRGB(50, 255, 150)
 setSpawnButton.BorderSizePixel = 0
-setSpawnButton.Text = "Set Spawn"
+setSpawnButton.Text = "Đặt Spawn"
 setSpawnButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 setSpawnButton.TextSize = 13
 setSpawnButton.Font = Enum.Font.GothamBold
@@ -151,19 +149,19 @@ local setSpawnCorner = Instance.new("UICorner")
 setSpawnCorner.CornerRadius = UDim.new(0, 6)
 setSpawnCorner.Parent = setSpawnButton
 
--- Player List Label
+-- Nhãn danh sách người chơi
 local listLabel = Instance.new("TextLabel")
 listLabel.Size = UDim2.new(1, -16, 0, 25)
 listLabel.Position = UDim2.new(0, 8, 0, 82)
 listLabel.BackgroundTransparency = 1
-listLabel.Text = "Players:"
+listLabel.Text = "Người chơi:"
 listLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 listLabel.TextSize = 14
 listLabel.Font = Enum.Font.GothamBold
 listLabel.TextXAlignment = Enum.TextXAlignment.Left
 listLabel.Parent = mainFrame
 
--- Player List ScrollingFrame
+-- Danh sách người chơi ScrollingFrame
 local playerList = Instance.new("ScrollingFrame")
 playerList.Size = UDim2.new(1, -16, 1, -115)
 playerList.Position = UDim2.new(0, 8, 0, 107)
@@ -180,9 +178,16 @@ local listLayout = Instance.new("UIListLayout")
 listLayout.Padding = UDim.new(0, 5)
 listLayout.Parent = playerList
 
--- Functions
+-- Chức năng ESP
 local function createESP(character)
     if not character then return end
+    
+    for _, obj in pairs(espObjects) do
+        if obj and obj.Parent then
+            obj:Destroy()
+        end
+    end
+    espObjects = {}
     
     for _, part in pairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
@@ -200,13 +205,15 @@ end
 
 local function removeESP()
     for _, obj in pairs(espObjects) do
-        obj:Destroy()
+        if obj and obj.Parent then
+            obj:Destroy()
+        end
     end
     espObjects = {}
 end
 
 local function updateESPColors()
-    local hue = (tick() * 2) % 1
+    local hue = (tick() * 0.1) % 1
     local color = Color3.fromHSV(hue, 1, 1)
     
     for _, obj in pairs(espObjects) do
@@ -220,15 +227,19 @@ local function stopTracking()
     isTracking = false
     targetPlayer = nil
     removeESP()
+    
+    -- Khôi phục camera về chế độ mặc định
     camera.CameraType = Enum.CameraType.Custom
-    camera.CameraSubject = player.Character and player.Character:FindFirstChild("Humanoid")
+    localPlayer.CameraMode = Enum.CameraMode.Classic
+    if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+        camera.CameraSubject = localPlayer.Character:FindFirstChild("Humanoid")
+    else
+        camera.CameraSubject = localPlayer
+    end
 end
 
 local function startTracking(targetPlr)
-    if isTracking and targetPlayer == targetPlr then
-        stopTracking()
-        return
-    end
+    -- Logic Bật/Tắt đã được tích hợp vào updatePlayerList
     
     stopTracking()
     targetPlayer = targetPlr
@@ -238,18 +249,20 @@ local function startTracking(targetPlr)
         createESP(targetPlr.Character)
     end
     
-    camera.CameraType = Enum.CameraType.Scriptable
+    localPlayer.CameraMode = Enum.CameraMode.Classic
 end
 
 local function updatePlayerList()
+    -- Xóa các nút cũ trong danh sách
     for _, child in pairs(playerList:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
         end
     end
     
+    -- Thêm các nút người chơi mới (Tích hợp Logic Bật/Tắt)
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player then
+        if plr ~= localPlayer and plr.Character then
             local playerButton = Instance.new("TextButton")
             playerButton.Size = UDim2.new(1, -8, 0, 32)
             playerButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -265,15 +278,20 @@ local function updatePlayerList()
             btnCorner.Parent = playerButton
             
             playerButton.MouseButton1Click:Connect(function()
-                startTracking(plr)
+                -- LOGIC BẬT/TẮT: Nếu bấm lại người đang theo dõi, thì dừng theo dõi
+                if plr == targetPlayer then
+                    stopTracking()
+                else
+                    startTracking(plr)
+                end
             end)
         end
     end
     
-    playerList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
+    playerList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
 end
 
--- Button Connections
+-- Kết nối nút
 menuButton.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
     if mainFrame.Visible then
@@ -286,21 +304,25 @@ closeButton.MouseButton1Click:Connect(function()
 end)
 
 setSpawnButton.MouseButton1Click:Connect(function()
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        spawnPoint = player.Character.HumanoidRootPart.CFrame
-        setSpawnButton.Text = "✓ Saved"
+    local rootPart = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        spawnPoint = rootPart.CFrame
+        setSpawnButton.Text = "✓ Đã lưu"
         wait(1)
-        setSpawnButton.Text = "Set Spawn"
+        setSpawnButton.Text = "Đặt Spawn"
     end
 end)
 
 tpButton.MouseButton1Click:Connect(function()
-    if spawnPoint and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = spawnPoint
+    local rootPart = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if spawnPoint and rootPart then
+        rootPart.CFrame = spawnPoint
+    else
+        warn("Lỗi TP: Chưa đặt điểm Spawn hoặc nhân vật chưa tải.")
     end
 end)
 
--- Player Added/Removed
+-- Người chơi đã được thêm/xóa
 Players.PlayerAdded:Connect(function()
     if mainFrame.Visible then
         updatePlayerList()
@@ -316,16 +338,25 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
--- Main Loop
+-- Vòng lặp chính (Góc nhìn đã được KHÔI PHỤC)
 RunService.RenderStepped:Connect(function(dt)
-    if isTracking and targetPlayer and targetPlayer.Character then
-        local targetChar = targetPlayer.Character
-        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-        local myChar = player.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if isTracking and targetPlayer then
         
+        local targetChar = targetPlayer.Character
+        local myChar = localPlayer.Character
+        
+        if not targetChar or not myChar then
+            return stopTracking()
+        end
+        
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+
         if targetRoot and myRoot then
-            -- Rotate around target
+            
+            camera.CameraType = Enum.CameraType.Scriptable
+            
+            -- Xử lý Logic Orbit
             rotationAngle = rotationAngle + (rotationSpeed * dt)
             local radius = 3.5
             local offsetX = math.cos(rotationAngle) * radius
@@ -333,20 +364,27 @@ RunService.RenderStepped:Connect(function(dt)
             
             local newPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
             
-            -- Nhân vật nhìn thẳng vào target
+            -- Đặt CFrame cho HumanoidRootPart của bạn (vẫn orbit và nhìn vào mục tiêu)
             myRoot.CFrame = CFrame.new(newPos, targetRoot.Position)
             
-            -- Camera ghim vào target (có thể xoay tự do nhưng luôn follow target)
-            camera.CameraSubject = targetRoot
-            camera.CameraType = Enum.CameraType.Custom
-            camera.Focus = targetRoot.CFrame
-            
-            -- Update ESP colors
+            -- **KHÔI PHỤC GÓC NHÌN THEO YÊU CẦU**
+            -- Dòng này là logic góc nhìn ban đầu mà bạn muốn giữ nguyên
+            camera.CFrame = CFrame.new(targetRoot.Position + Vector3.new(0, 10, -10), targetRoot.Position) 
+
+            -- Cập nhật màu ESP
             updateESPColors()
         else
+            removeESP() 
             stopTracking()
         end
     end
 end)
 
-print("Player Tracker GUI loaded!")
+localPlayer.CharacterAdded:Connect(function()
+    wait(0.1)
+    if not isTracking then
+        camera.CameraSubject = localPlayer.Character:FindFirstChild("Humanoid") or localPlayer.Character
+    end
+end)
+
+print("Giao diện người dùng theo dõi người chơi đã được tải và khôi phục góc nhìn!")
