@@ -1,17 +1,17 @@
 -- PlayerTrackerScript
--- LocalScript - StarterGui
+-- Dán vào StarterGui dưới dạng LocalScript
 
--- SERVICES
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
--- PLAYER
+-- Player & Camera
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- STATE
+-- State
 local targetPlayer = nil
 local isTracking = false
 local spawnPoint = nil
@@ -19,7 +19,7 @@ local espObjects = {}
 local rotationAngle = 0
 local rotationSpeed = 9 -- GIỮ NGUYÊN
 
--- GUI ROOT
+-- GUI root
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PlayerTrackerGUI"
@@ -27,9 +27,10 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 --------------------------------------------------
--- MENU BUTTON (FIX KÉO THẢ)
+-- MENU BUTTON (FIX KÉO THẢ DUY NHẤT)
 --------------------------------------------------
 local menuButton = Instance.new("ImageButton")
+menuButton.Name = "MenuButton"
 menuButton.Size = UDim2.new(0,70,0,70)
 menuButton.Position = UDim2.new(0,5,0.5,-35)
 menuButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
@@ -37,9 +38,11 @@ menuButton.BorderSizePixel = 0
 menuButton.Image = "rbxthumb://type=Asset&id=138603451425364&w=420&h=420"
 menuButton.Parent = screenGui
 
-Instance.new("UICorner",menuButton).CornerRadius = UDim.new(1,0)
+local menuCorner = Instance.new("UICorner")
+menuCorner.CornerRadius = UDim.new(1,0)
+menuCorner.Parent = menuButton
 
--- FIX DRAG (ĐOẠN DUY NHẤT ĐƯỢC SỬA)
+-- FIX DRAG MENU (KHÔNG BỊ KÉO KHI BẤM CHỖ KHÁC)
 local dragging = false
 local dragStart
 local startPos
@@ -83,6 +86,7 @@ end)
 -- MAIN FRAME
 --------------------------------------------------
 local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0,240,0,320)
 mainFrame.Position = UDim2.new(0.5,-120,0.5,-160)
 mainFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
@@ -92,40 +96,85 @@ mainFrame.Parent = screenGui
 
 Instance.new("UICorner",mainFrame).CornerRadius = UDim.new(0,12)
 
---------------------------------------------------
--- TITLE + CLOSE
---------------------------------------------------
-local title = Instance.new("TextLabel",mainFrame)
+-- Title
+local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,35)
 title.BackgroundColor3 = Color3.fromRGB(45,45,45)
+title.BorderSizePixel = 0
 title.Text = "Trình theo dõi Người chơi"
 title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
+title.Parent = mainFrame
 
-local closeButton = Instance.new("TextButton",mainFrame)
+-- Close
+local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0,28,0,28)
 closeButton.Position = UDim2.new(1,-32,0,4)
 closeButton.Text = "X"
 closeButton.BackgroundColor3 = Color3.fromRGB(255,50,50)
 closeButton.TextColor3 = Color3.new(1,1,1)
 closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = mainFrame
 
 --------------------------------------------------
--- MENU OPEN / CLOSE
+-- SPAWN BUTTONS
 --------------------------------------------------
-menuButton.MouseButton1Click:Connect(function()
-	mainFrame.Visible = not mainFrame.Visible
-end)
+local tpButton = Instance.new("TextButton")
+tpButton.Size = UDim2.new(0,105,0,32)
+tpButton.Position = UDim2.new(0,8,0,43)
+tpButton.BackgroundColor3 = Color3.fromRGB(50,150,255)
+tpButton.Text = "TP Spawn"
+tpButton.TextColor3 = Color3.new(1,1,1)
+tpButton.Font = Enum.Font.GothamBold
+tpButton.TextSize = 13
+tpButton.BorderSizePixel = 0
+tpButton.Parent = mainFrame
 
-closeButton.MouseButton1Click:Connect(function()
-	mainFrame.Visible = false
-end)
+local setSpawnButton = Instance.new("TextButton")
+setSpawnButton.Size = UDim2.new(0,105,0,32)
+setSpawnButton.Position = UDim2.new(1,-113,0,43)
+setSpawnButton.BackgroundColor3 = Color3.fromRGB(50,255,150)
+setSpawnButton.Text = "Đặt Spawn"
+setSpawnButton.TextColor3 = Color3.new(1,1,1)
+setSpawnButton.Font = Enum.Font.GothamBold
+setSpawnButton.TextSize = 13
+setSpawnButton.BorderSizePixel = 0
+setSpawnButton.Parent = mainFrame
+
+--------------------------------------------------
+-- PLAYER LIST
+--------------------------------------------------
+local listLabel = Instance.new("TextLabel")
+listLabel.Size = UDim2.new(1,-16,0,25)
+listLabel.Position = UDim2.new(0,8,0,82)
+listLabel.BackgroundTransparency = 1
+listLabel.Text = "Người chơi:"
+listLabel.TextColor3 = Color3.new(1,1,1)
+listLabel.Font = Enum.Font.GothamBold
+listLabel.TextSize = 14
+listLabel.TextXAlignment = Enum.TextXAlignment.Left
+listLabel.Parent = mainFrame
+
+local playerList = Instance.new("ScrollingFrame")
+playerList.Size = UDim2.new(1,-16,1,-115)
+playerList.Position = UDim2.new(0,8,0,107)
+playerList.CanvasSize = UDim2.new(0,0,0,0)
+playerList.ScrollBarThickness = 5
+playerList.BackgroundColor3 = Color3.fromRGB(25,25,25)
+playerList.BorderSizePixel = 0
+playerList.Parent = mainFrame
+
+Instance.new("UICorner",playerList).CornerRadius = UDim.new(0,6)
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0,5)
+listLayout.Parent = playerList
 
 --------------------------------------------------
 -- ESP
 --------------------------------------------------
-local function clearESP()
+local function removeESP()
 	for _,v in pairs(espObjects) do
 		if v then v:Destroy() end
 	end
@@ -133,7 +182,7 @@ local function clearESP()
 end
 
 local function createESP(char)
-	clearESP()
+	removeESP()
 	for _,p in pairs(char:GetDescendants()) do
 		if p:IsA("BasePart") then
 			local box = Instance.new("BoxHandleAdornment")
@@ -148,7 +197,79 @@ local function createESP(char)
 end
 
 --------------------------------------------------
--- TRACKING LOOP (GIỮ NGUYÊN)
+-- PLAYER LIST UPDATE (GIỮ NGUYÊN)
+--------------------------------------------------
+local function updatePlayerList()
+	for _,c in pairs(playerList:GetChildren()) do
+		if c:IsA("TextButton") then c:Destroy() end
+	end
+
+	for _,plr in pairs(Players:GetPlayers()) do
+		if plr ~= localPlayer and plr.Character then
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1,-8,0,32)
+			btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+			btn.Text = plr.Name
+			btn.TextColor3 = Color3.new(1,1,1)
+			btn.Font = Enum.Font.Gotham
+			btn.TextSize = 13
+			btn.BorderSizePixel = 0
+			btn.Parent = playerList
+
+			Instance.new("UICorner",btn).CornerRadius = UDim.new(0,5)
+
+			btn.MouseButton1Click:Connect(function()
+				if targetPlayer == plr then
+					isTracking = false
+					targetPlayer = nil
+					removeESP()
+					camera.CameraType = Enum.CameraType.Custom
+				else
+					targetPlayer = plr
+					isTracking = true
+					createESP(plr.Character)
+				end
+			end)
+		end
+	end
+
+	task.wait()
+	playerList.CanvasSize = UDim2.new(0,0,0,listLayout.AbsoluteContentSize.Y)
+end
+
+--------------------------------------------------
+-- BUTTON LOGIC
+--------------------------------------------------
+menuButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+	if mainFrame.Visible then
+		updatePlayerList()
+	end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+end)
+
+setSpawnButton.MouseButton1Click:Connect(function()
+	local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if root then
+		spawnPoint = root.CFrame
+	end
+end)
+
+tpButton.MouseButton1Click:Connect(function()
+	local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if spawnPoint and root then
+		root.CFrame = spawnPoint
+	end
+end)
+
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+
+--------------------------------------------------
+-- MAIN LOOP (GIỮ NGUYÊN)
 --------------------------------------------------
 RunService.RenderStepped:Connect(function(dt)
 	if isTracking and targetPlayer and targetPlayer.Character then
@@ -161,9 +282,9 @@ RunService.RenderStepped:Connect(function(dt)
 
 		local r = 3.5
 		local pos = trg.Position + Vector3.new(
-			math.cos(rotationAngle) * r,
+			math.cos(rotationAngle)*r,
 			0,
-			math.sin(rotationAngle) * r
+			math.sin(rotationAngle)*r
 		)
 
 		my.CFrame = CFrame.new(pos, trg.Position)
@@ -176,4 +297,4 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
-print("✅ SCRIPT FULL – CHỈ FIX KÉO MENU – XONG")
+print("✅ FULL SCRIPT – CHỈ FIX KÉO MENU – KHÔNG MẤT DANH SÁCH PLAYER")
