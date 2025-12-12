@@ -1,0 +1,237 @@
+--========================================================--
+-- mc_meme_edit – FINAL V3 (Mini Menu Drag + Full GUI)
+--========================================================--
+
+local CoreGui = game:GetService("CoreGui")
+
+if CoreGui:FindFirstChild("mc_mini_gui") then
+    CoreGui["mc_mini_gui"]:Destroy()
+end
+
+local Gui = Instance.new("ScreenGui", CoreGui)
+Gui.Name = "mc_mini_gui"
+Gui.ResetOnSpawn = false
+
+----------------------------------------------------------------
+-- FUNCTIONS
+----------------------------------------------------------------
+local function RainbowStroke(obj)
+    local s = Instance.new("UIStroke", obj)
+    s.Thickness = 2
+    task.spawn(function()
+        while task.wait(0.03) do
+            s.Color = Color3.fromHSV((tick() % 4)/4,1,1)
+        end
+    end)
+end
+
+local function RainbowText(label)
+    task.spawn(function()
+        while task.wait(0.03) do
+            label.TextColor3 = Color3.fromHSV((tick() % 3)/3,1,1)
+        end
+    end)
+end
+
+local function Round(obj)
+    Instance.new("UICorner", obj).CornerRadius = UDim.new(0,10)
+end
+
+local function MakeBtn(parent,text)
+    local b = Instance.new("TextButton", parent)
+    b.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Text = text
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 18
+    Round(b)
+    RainbowStroke(b)
+    return b
+end
+
+----------------------------------------------------------------
+-- MINI MENU (KÉO THẢ ĐƯỢC)
+----------------------------------------------------------------
+local Mini = Instance.new("Frame", Gui)
+Mini.Size = UDim2.new(0,75,0,40)
+Mini.Position = UDim2.new(0,160,0,50)
+Mini.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Round(Mini)
+RainbowStroke(Mini)
+
+Mini.Active = true
+Mini.Draggable = true  -- ⭐ FIX KÉO THẢ
+
+local MiniBtn = Instance.new("TextButton", Mini)
+MiniBtn.Size = UDim2.new(1,0,1,0)
+MiniBtn.BackgroundTransparency = 1
+MiniBtn.Text = "MC"
+MiniBtn.Font = Enum.Font.GothamBlack
+MiniBtn.TextSize = 28
+MiniBtn.AutoButtonColor = false
+RainbowText(MiniBtn)
+
+----------------------------------------------------------------
+-- MAIN GUI (ẨN KHI CHƯA BẤM)
+----------------------------------------------------------------
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0,330,0,260)
+Main.Position = UDim2.new(0.37,0,0.35,0)
+Main.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Main.Visible = false
+Main.Active = true
+Main.Draggable = true
+Round(Main)
+RainbowStroke(Main)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "mc_meme_edit"
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 26
+RainbowText(Title)
+
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.new(1,-20,1,-60)
+Content.Position = UDim2.new(0,10,0,50)
+Content.BackgroundTransparency = 1
+
+local function ClearContent()
+    for _,v in ipairs(Content:GetChildren()) do
+        v:Destroy()
+    end
+end
+
+----------------------------------------------------------------
+-- HOME PAGE
+----------------------------------------------------------------
+local function LoadHome()
+    ClearContent()
+
+    local c = MakeBtn(Content, "Console")
+    c.Size = UDim2.new(1,0,0,45)
+    c.Position = UDim2.new(0,0,0,0)
+
+    local s = MakeBtn(Content, "Script Menu")
+    s.Size = UDim2.new(1,0,0,45)
+    s.Position = UDim2.new(0,0,0,55)
+
+    c.MouseButton1Click:Connect(function()
+        LoadConsole()
+    end)
+
+    s.MouseButton1Click:Connect(function()
+        LoadScripts()
+    end)
+end
+
+----------------------------------------------------------------
+-- CONSOLE PAGE — SCROLL + TỰ GIÃN CODEBOX
+----------------------------------------------------------------
+function LoadConsole()
+    ClearContent()
+
+    local Scroll = Instance.new("ScrollingFrame", Content)
+    Scroll.Size = UDim2.new(1,0,0,125)
+    Scroll.ScrollBarThickness = 4
+    Scroll.CanvasSize = UDim2.new(0,0,0,0)
+    Scroll.BackgroundColor3 = Color3.fromRGB(15,15,15)
+    Round(Scroll)
+    RainbowStroke(Scroll)
+
+    local CodeBox = Instance.new("TextBox", Scroll)
+    CodeBox.Size = UDim2.new(1,-10,0,125)
+    CodeBox.Position = UDim2.new(0,5,0,0)
+    CodeBox.BackgroundTransparency = 1
+    CodeBox.TextColor3 = Color3.new(1,1,1)
+    CodeBox.Font = Enum.Font.Code
+    CodeBox.TextSize = 16
+    CodeBox.MultiLine = true
+    CodeBox.TextWrapped = false
+    CodeBox.ClearTextOnFocus = false
+    CodeBox.ClipsDescendants = false
+
+    CodeBox:GetPropertyChangedSignal("Text"):Connect(function()
+        task.wait()
+        local Y = CodeBox.TextBounds.Y + 20
+        CodeBox.Size = UDim2.new(1,-10,0,Y)
+        Scroll.CanvasSize = UDim2.new(0,0,0,Y)
+    end)
+
+    local Run = MakeBtn(Content, "Execute")
+    Run.Size = UDim2.new(0.48,0,0,35)
+    Run.Position = UDim2.new(0,0,0,135)
+
+    local Clear = MakeBtn(Content, "Clear")
+    Clear.Size = UDim2.new(0.48,0,0,35)
+    Clear.Position = UDim2.new(0.52,0,0,135)
+
+    local Back = MakeBtn(Content, "← Back")
+    Back.Size = UDim2.new(1,0,0,38)
+    Back.Position = UDim2.new(0,0,0,180)
+
+    Run.MouseButton1Click:Connect(function()
+        local f = loadstring(CodeBox.Text)
+        if f then pcall(f) end
+    end)
+
+    Clear.MouseButton1Click:Connect(function()
+        CodeBox.Text = ""
+    end)
+
+    Back.MouseButton1Click:Connect(function()
+        LoadHome()
+    end)
+end
+
+----------------------------------------------------------------
+-- SCRIPT LIST PAGE
+----------------------------------------------------------------
+function LoadScripts()
+    ClearContent()
+
+    local Holder = Instance.new("ScrollingFrame", Content)
+    Holder.Size = UDim2.new(1,0,1,-40)
+    Holder.ScrollBarThickness = 3
+    Holder.CanvasSize = UDim2.new(0,0,0,800)
+    Holder.BackgroundTransparency = 1
+
+    local Layout = Instance.new("UIListLayout", Holder)
+    Layout.Padding = UDim.new(0,5)
+
+    local Scripts = {
+        ["IY"] = [[loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()]]
+        ["tàng hình"] = [[loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Awesome-Invisible-man-21074"))()]]
+    }
+
+    for name,code in pairs(Scripts) do
+        local b = MakeBtn(Holder, name)
+        b.Size = UDim2.new(1,-8,0,32)
+        b.MouseButton1Click:Connect(function()
+            local f = loadstring(code)
+            if f then pcall(f) end
+        end)
+    end
+
+    Holder.Parent = Content
+
+    local Back = MakeBtn(Content, "← Back")
+    Back.Size = UDim2.new(1,0,0,38)
+    Back.Position = UDim2.new(0,0,1,-38)
+    Back.MouseButton1Click:Connect(LoadHome)
+end
+
+----------------------------------------------------------------
+-- MINI BUTTON → BẬT/TẮT GUI
+----------------------------------------------------------------
+MiniBtn.MouseButton1Click:Connect(function()
+    if Main.Visible == false then
+        Main.Visible = true
+        LoadHome()
+    else
+        Main.Visible = false
+    end
+end)
+
+LoadHome()
