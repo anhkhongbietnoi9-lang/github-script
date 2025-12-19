@@ -1,0 +1,235 @@
+-- Roblox Fling GUI với Rainbow Border
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Tạo ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlingGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- Frame chính (nền đen)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 280, 0, 180)
+mainFrame.Position = UDim2.new(0.5, -140, 0.5, -90)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+-- Bo góc cho frame chính
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+-- Frame cho viền rainbow
+local rainbowFrame = Instance.new("Frame")
+rainbowFrame.Name = "RainbowBorder"
+rainbowFrame.Size = UDim2.new(1, 6, 1, 6)
+rainbowFrame.Position = UDim2.new(0, -3, 0, -3)
+rainbowFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+rainbowFrame.BorderSizePixel = 0
+rainbowFrame.ZIndex = 0
+rainbowFrame.Parent = mainFrame
+
+-- Bo góc cho viền rainbow
+local rainbowCorner = Instance.new("UICorner")
+rainbowCorner.CornerRadius = UDim.new(0, 14)
+rainbowCorner.Parent = rainbowFrame
+
+-- Gradient cho viền rainbow
+local gradient = Instance.new("UIGradient")
+gradient.Parent = rainbowFrame
+
+-- Tiêu đề
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "MC_MEME_EDIT"
+titleLabel.Size = UDim2.new(1, 0, 0, 35)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "MC_MEME_EDIT"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = mainFrame
+
+-- Nút Fling
+local flingButton = Instance.new("TextButton")
+flingButton.Name = "FlingButton"
+flingButton.Size = UDim2.new(0, 200, 0, 50)
+flingButton.Position = UDim2.new(0.5, -100, 0, 50)
+flingButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+flingButton.BorderSizePixel = 0
+flingButton.Text = "FLING"
+flingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingButton.TextSize = 20
+flingButton.Font = Enum.Font.GothamBold
+flingButton.Parent = mainFrame
+
+-- Bo góc cho nút Fling
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 8)
+buttonCorner.Parent = flingButton
+
+-- Label cho Strength
+local strengthLabel = Instance.new("TextLabel")
+strengthLabel.Name = "StrengthLabel"
+strengthLabel.Size = UDim2.new(0, 80, 0, 25)
+strengthLabel.Position = UDim2.new(0, 20, 0, 115)
+strengthLabel.BackgroundTransparency = 1
+strengthLabel.Text = "Strength:"
+strengthLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+strengthLabel.TextSize = 14
+strengthLabel.Font = Enum.Font.Gotham
+strengthLabel.TextXAlignment = Enum.TextXAlignment.Left
+strengthLabel.Parent = mainFrame
+
+-- TextBox để điều chỉnh Strength
+local strengthBox = Instance.new("TextBox")
+strengthBox.Name = "StrengthBox"
+strengthBox.Size = UDim2.new(0, 160, 0, 30)
+strengthBox.Position = UDim2.new(0, 100, 0, 112)
+strengthBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+strengthBox.BorderSizePixel = 0
+strengthBox.Text = "400"
+strengthBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+strengthBox.TextSize = 14
+strengthBox.Font = Enum.Font.Gotham
+strengthBox.PlaceholderText = "Nhập giá trị..."
+strengthBox.Parent = mainFrame
+
+-- Bo góc cho TextBox
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 6)
+boxCorner.Parent = strengthBox
+
+-- Hiệu ứng Rainbow cho viền
+local hue = 0
+RunService.RenderStepped:Connect(function()
+    hue = hue + 0.01
+    if hue >= 1 then
+        hue = 0
+    end
+    gradient.Rotation = hue * 360
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, 1, 1)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromHSV((hue + 0.5) % 1, 1, 1)),
+        ColorSequenceKeypoint.new(1, Color3.fromHSV(hue, 1, 1))
+    })
+end)
+
+-- Biến lưu trữ strength
+local currentStrength = 400
+
+-- Cập nhật strength từ TextBox
+strengthBox.FocusLost:Connect(function()
+    local value = tonumber(strengthBox.Text)
+    if value then
+        currentStrength = value
+        print("Strength đã được cập nhật:", currentStrength)
+    else
+        strengthBox.Text = tostring(currentStrength)
+    end
+end)
+
+-- Biến trạng thái Fling
+local flingActive = false
+
+-- Script Fling
+local function setupFling()
+    local userinputs = game:GetService("UserInputService")
+    local action = game:GetService("ContextActionService")
+    local w = game:GetService("Workspace")
+    local r = game:GetService("RunService")
+    local d = game:GetService("Debris")
+    
+    w.ChildAdded:Connect(function(model)
+        if model.Name == "GrabParts" then
+            local part_to_impulse = model["GrabPart"]["WeldConstraint"].Part1
+            if part_to_impulse then
+                print("Part found!")
+                local inputObj
+                local velocityObj = Instance.new("BodyVelocity", part_to_impulse)
+                local c1, c2, c3
+                velocityObj.MaxForce = Vector3.new(0,0,0)
+                
+                while inputObj == nil and model.Parent do
+                    for _, button in pairs(game.Players.LocalPlayer.PlayerGui["ContextActionGui"]:GetDescendants()) do
+                        if button:IsA("ImageLabel") then
+                            if button.Image == "http://www.roblox.com/asset/?id=9603678090" then
+                                inputObj = button.Parent
+                                print(inputObj)
+                            end
+                        end
+                    end
+                    r.Heartbeat:Wait()
+                end
+                
+                if inputObj then
+                    c1 = inputObj.MouseButton1Up:Connect(function()
+                        print("Launched!")
+                        velocityObj.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                        velocityObj.Velocity = workspace.CurrentCamera.CFrame.lookVector * currentStrength
+                    end)
+                    c2 = inputObj.MouseButton1Down:Connect(function()
+                        print("Launched!")
+                        velocityObj.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                        velocityObj.Velocity = workspace.CurrentCamera.CFrame.lookVector * currentStrength
+                    end)
+                end
+                
+                c3 = model:GetPropertyChangedSignal("Parent"):Connect(function()
+                    if not model.Parent then
+                        c3:Disconnect()
+                        d:AddItem(velocityObj, 1)
+                        if c1 then
+                            c1:Disconnect()
+                            if c2 then
+                                c2:Disconnect()
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+-- Xử lý khi nhấn nút Fling
+flingButton.MouseButton1Click:Connect(function()
+    if not flingActive then
+        flingActive = true
+        flingButton.Text = "FLING ON"
+        flingButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        setupFling()
+        print("Fling đã được kích hoạt với strength:", currentStrength)
+    else
+        flingActive = false
+        flingButton.Text = "FLING"
+        flingButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        print("Fling đã tắt")
+    end
+end)
+
+-- Hiệu ứng hover cho nút
+flingButton.MouseEnter:Connect(function()
+    TweenService:Create(flingButton, TweenInfo.new(0.2), {
+        BackgroundColor3 = flingActive and Color3.fromRGB(60, 170, 60) or Color3.fromRGB(60, 60, 60)
+    }):Play()
+end)
+
+flingButton.MouseLeave:Connect(function()
+    TweenService:Create(flingButton, TweenInfo.new(0.2), {
+        BackgroundColor3 = flingActive and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(40, 40, 40)
+    }):Play()
+end)
+
+print("Fling GUI đã load thành công!")
