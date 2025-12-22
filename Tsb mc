@@ -1,0 +1,250 @@
+-- =================================================
+-- SPHERICAL ORBIT (TRUE BALL) + FAST + RESET SAFE
+-- GUI với ảnh menu + Auto Noclip
+-- =================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- ===== STATE =====
+local character = player.Character or player.CharacterAdded:Wait()
+local target, orbitConn, noclipConn, esp
+local angle = 0
+local isNoclipEnabled = false
+
+-- ===== CONFIG =====
+local SPEED = 9999999       -- tốc độ quay
+local DIST = 3.5            -- bán kính cầu
+
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "SphereOrbitGUI"
+gui.ResetOnSpawn = false
+
+-- menu tròn với IMAGE
+local menuBtn = Instance.new("ImageButton", gui)
+menuBtn.Size = UDim2.fromOffset(70,70)
+menuBtn.Position = UDim2.new(0.05,0,0.6,0)
+menuBtn.Image = "rbxassetid://103725839181536"  -- ẢNH CỦA BẠN
+menuBtn.BackgroundTransparency = 1
+menuBtn.ScaleType = Enum.ScaleType.Fit
+Instance.new("UICorner", menuBtn).CornerRadius = UDim.new(1,0)
+
+-- drag menu tròn
+do
+	local d,sp,si
+	menuBtn.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+			d=true; sp=menuBtn.Position; si=i.Position
+		end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if d then
+			local df=i.Position-si
+			menuBtn.Position=UDim2.new(sp.X.Scale,sp.X.Offset+df.X,sp.Y.Scale,sp.Y.Offset+df.Y)
+		end
+	end)
+	UIS.InputEnded:Connect(function() d=false end)
+end
+
+-- bảng chính
+local menu = Instance.new("Frame", gui)
+menu.Size = UDim2.fromOffset(300,350)
+menu.Position = UDim2.new(0.3,0,0.2,0)
+menu.BackgroundColor3 = Color3.fromRGB(25,25,25)
+menu.Visible = false
+Instance.new("UICorner", menu).CornerRadius = UDim.new(0,16)
+
+menuBtn.MouseButton1Click:Connect(function()
+	menu.Visible = not menu.Visible
+end)
+
+-- drag bảng
+do
+	local d,sp,si
+	menu.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+			d=true; sp=menu.Position; si=i.Position
+		end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if d then
+			local df=i.Position-si
+			menu.Position=UDim2.new(sp.X.Scale,sp.X.Offset+df.X,sp.Y.Scale,sp.Y.Offset+df.Y)
+		end
+	end)
+	UIS.InputEnded:Connect(function() d=false end)
+end
+
+-- nút X
+local close = Instance.new("TextButton", menu)
+close.Size = UDim2.fromOffset(30,30)
+close.Position = UDim2.new(1,-35,0,5)
+close.Text = "X"
+close.BackgroundColor3 = Color3.fromRGB(200,0,0)
+close.TextColor3 = Color3.new(1,1,1)
+close.MouseButton1Click:Connect(function()
+	menu.Visible = false
+end)
+
+-- list player
+local list = Instance.new("ScrollingFrame", menu)
+list.Position = UDim2.fromOffset(10,45)
+list.Size = UDim2.fromOffset(280,295)
+list.BackgroundColor3 = Color3.fromRGB(35,35,35)
+list.BorderSizePixel = 0
+list.ScrollBarImageTransparency = 0.3
+
+-- ===== RESET STATE (GIỮ GUI) =====
+local function fullResetState()
+	if orbitConn then orbitConn:Disconnect() orbitConn=nil end
+	if noclipConn then noclipConn:Disconnect() noclipConn=nil end
+	if esp then esp:Destroy() esp=nil end
+	target=nil
+	angle=0
+	isNoclipEnabled=false
+	menu.Visible=false
+	if character and character:FindFirstChild("Humanoid") then
+		camera.CameraSubject = character.Humanoid
+	end
+end
+
+player.CharacterAdded:Connect(function(char)
+	character = char
+	task.wait(0.1)
+	fullResetState()
+end)
+
+-- ===== NOCLIP =====
+local function enableNoclip()
+	if noclipConn then return end
+	isNoclipEnabled = true
+	noclipConn = RunService.Stepped:Connect(function()
+		if character and isNoclipEnabled then
+			for _,v in ipairs(character:GetDescendants()) do
+				if v:IsA("BasePart") then
+					v.CanCollide=false
+				end
+			end
+		end
+	end)
+	print("✅ Noclip ENABLED")
+end
+
+local function disableNoclip()
+	if noclipConn then
+		noclipConn:Disconnect()
+		noclipConn = nil
+	end
+	isNoclipEnabled = false
+	if character then
+		for _,v in ipairs(character:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide=true
+			end
+		end
+	end
+	print("❌ Noclip DISABLED")
+end
+
+-- ===== ESP =====
+local function setESP(char)
+	if esp then esp:Destroy() end
+	if not char then return end
+	esp = Instance.new("Highlight", char)
+	esp.FillTransparency=1
+	esp.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+	RunService.RenderStepped:Connect(function()
+		if esp then
+			esp.OutlineColor=Color3.fromHSV((tick()%3)/3,1,1)
+		end
+	end)
+end
+
+-- ===== SPHERICAL ORBIT =====
+local function startOrbit(plr)
+	if target==plr then
+		fullResetState()
+		disableNoclip()
+		return
+	end
+
+	fullResetState()
+	target=plr
+	
+	-- TỰ ĐỘNG BẬT NOCLIP KHI CHỌN PLAYER
+	enableNoclip()
+	
+	setESP(plr.Character)
+
+	if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+		camera.CameraSubject=plr.Character.Humanoid
+	end
+
+	orbitConn=RunService.RenderStepped:Connect(function(dt)
+		if not (target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")) then
+			fullResetState()
+			disableNoclip()
+			return
+		end
+		if not (character and character:FindFirstChild("HumanoidRootPart")) then return end
+
+		angle += dt * SPEED
+
+		local theta = angle                  -- quay quanh
+		local phi   = angle % math.pi        -- quét từ đỉnh → đáy
+
+		local R = DIST
+		local tHRP = target.Character.HumanoidRootPart
+		local myHRP = character.HumanoidRootPart
+
+		local x = R * math.cos(theta) * math.sin(phi)
+		local y = R * math.cos(phi)
+		local z = R * math.sin(theta) * math.sin(phi)
+
+		myHRP.CFrame = CFrame.new(
+			tHRP.Position + Vector3.new(x,y,z),
+			tHRP.Position
+		)
+	end)
+end
+
+-- ===== PLAYER LIST =====
+local function refresh()
+	list:ClearAllChildren()
+	local y=0
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if plr~=player then
+			local b=Instance.new("TextButton",list)
+			b.Size=UDim2.fromOffset(260,40)
+			b.Position=UDim2.new(0,10,0,y)
+			b.Text=plr.Name
+			b.BackgroundColor3=Color3.fromRGB(40,40,40)
+			b.TextColor3=Color3.new(1,1,1)
+			b.MouseButton1Click:Connect(function()
+				startOrbit(plr)
+			end)
+			
+			-- Highlight khi hover
+			b.MouseEnter:Connect(function()
+				b.BackgroundColor3=Color3.fromRGB(60,60,60)
+			end)
+			b.MouseLeave:Connect(function()
+				b.BackgroundColor3=Color3.fromRGB(40,40,40)
+			end)
+			
+			y+=45
+		end
+	end
+	list.CanvasSize=UDim2.new(0,0,0,y)
+end
+
+Players.PlayerAdded:Connect(refresh)
+Players.PlayerRemoving:Connect(refresh)
+refresh()
+
+print("🚀 Sphere Orbit Script loaded!")
