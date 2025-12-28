@@ -1,0 +1,411 @@
+-- MC Meme Edit Fling Script
+-- Tạo ScreenGui
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local FlingAllButton = Instance.new("TextButton")
+local PlayerListFrame = Instance.new("ScrollingFrame")
+local UIListLayout = Instance.new("UIListLayout")
+local UICorner = Instance.new("UICorner")
+local UICorner2 = Instance.new("UICorner")
+local UICorner3 = Instance.new("UICorner")
+
+-- Thiết lập ScreenGui
+ScreenGui.Name = "MCMemeFlingGui"
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+
+-- Thiết lập MainFrame
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 300, 0, 400)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BackgroundTransparency = 0.1
+
+UICorner.CornerRadius = UDim.new(0, 15)
+UICorner.Parent = MainFrame
+
+-- Animation khi mở
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFrame:TweenSize(UDim2.new(0, 300, 0, 400), "Out", "Elastic", 0.8, true)
+
+-- Thiết lập TitleLabel
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+TitleLabel.BorderSizePixel = 0
+TitleLabel.Size = UDim2.new(1, 0, 0, 50)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "MC MEME EDIT"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 24
+TitleLabel.TextStrokeTransparency = 0.5
+
+UICorner2.CornerRadius = UDim.new(0, 15)
+UICorner2.Parent = TitleLabel
+
+-- Hiệu ứng chớp title
+spawn(function()
+    while wait(0.5) do
+        TitleLabel:TweenSizeAndPosition(UDim2.new(1, 0, 0, 50), UDim2.new(0, 0, 0, 0), "Out", "Quad", 0.2, true)
+        wait(0.2)
+        TitleLabel:TweenSizeAndPosition(UDim2.new(1, 0, 0, 50), UDim2.new(0, 0, 0, 0), "In", "Quad", 0.2, true)
+    end
+end)
+
+-- Thiết lập FlingAllButton
+FlingAllButton.Name = "FlingAllButton"
+FlingAllButton.Parent = MainFrame
+FlingAllButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+FlingAllButton.BorderSizePixel = 0
+FlingAllButton.Position = UDim2.new(0.1, 0, 0.15, 0)
+FlingAllButton.Size = UDim2.new(0.8, 0, 0, 45)
+FlingAllButton.Font = Enum.Font.GothamBold
+FlingAllButton.Text = "FLING ALL"
+FlingAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlingAllButton.TextSize = 20
+
+UICorner3.CornerRadius = UDim.new(0, 10)
+UICorner3.Parent = FlingAllButton
+
+-- Thiết lập PlayerListFrame
+PlayerListFrame.Name = "PlayerListFrame"
+PlayerListFrame.Parent = MainFrame
+PlayerListFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+PlayerListFrame.BorderSizePixel = 0
+PlayerListFrame.Position = UDim2.new(0.1, 0, 0.3, 0)
+PlayerListFrame.Size = UDim2.new(0.8, 0, 0.65, 0)
+PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerListFrame.ScrollBarThickness = 6
+
+local listCorner = Instance.new("UICorner")
+listCorner.CornerRadius = UDim.new(0, 10)
+listCorner.Parent = PlayerListFrame
+
+UIListLayout.Parent = PlayerListFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 5)
+
+-- Biến toàn cục
+local isFlinging = false
+local currentTarget = nil
+local flingConnection = nil
+local noclipConnection = nil
+local autoFlingAll = false
+local targetedPlayers = {}
+
+-- Hàm noclip
+local function enableNoclip()
+    if noclipConnection then return end
+    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+-- Hàm kiểm tra player có bị văng không
+local function isPlayerFlung(targetPlayer)
+    if not targetPlayer.Character then return false end
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return false end
+    
+    return targetHRP.AssemblyLinearVelocity.Magnitude > 200
+end
+
+-- Hàm fling với xoay lung tung CỰC MẠNH
+local function startFling(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return end
+    
+    currentTarget = targetPlayer
+    isFlinging = true
+    enableNoclip()
+    
+    -- SETUP FLING CỰC MẠNH
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    
+    -- Vô hiệu hóa network ownership để fling mạnh hơn
+    if humanoidRootPart:IsA("BasePart") then
+        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    end
+    
+    -- Tạo BodyVelocity CỰC MẠNH
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Parent = humanoidRootPart
+    
+    -- Tạo BodyAngularVelocity cho spin CỰC MẠNH
+    local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+    bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+    bodyAngularVelocity.P = 5000
+    bodyAngularVelocity.Parent = humanoidRootPart
+    
+    -- Khóa camera vào target
+    workspace.CurrentCamera.CameraSubject = targetHRP
+    
+    -- Xoay cực nhanh với hiệu ứng lung tung
+    local spinSpeed = 0
+    local spinAcceleration = 500
+    
+    flingConnection = game:GetService("RunService").Heartbeat:Connect(function(dt)
+        if not isFlinging or not currentTarget or not currentTarget.Character then 
+            return 
+        end
+        
+        targetHRP = currentTarget.Character:FindFirstChild("HumanoidRootPart")
+        if not targetHRP then return end
+        
+        -- TĂNG TỐC ĐỘ XOAY CỰC NHANH
+        spinSpeed = spinSpeed + spinAcceleration * dt
+        if spinSpeed > 9999 then spinSpeed = 9999 end
+        
+        -- Tạo hiệu ứng lung tung CỰC MẠNH
+        local wobbleX = math.sin(tick() * 50) * spinSpeed * 0.1
+        local wobbleY = math.cos(tick() * 37) * spinSpeed * 0.1
+        local wobbleZ = math.sin(tick() * 43) * spinSpeed * 0.1
+        
+        -- GOTO VỊ TRÍ TARGET - VỊ TRÍ BỤNG (teleport)
+        local targetPos = targetHRP.Position
+        -- Đặt ở vị trí bụng (cùng độ cao với HumanoidRootPart của target)
+        humanoidRootPart.CFrame = CFrame.new(targetPos)
+        
+        -- Set velocity CỰC MẠNH cho việc fling
+        bodyVelocity.Velocity = Vector3.new(
+            math.random(-100, 100),
+            math.random(-100, 100),
+            math.random(-100, 100)
+        )
+        
+        -- XOAY LUNG TUNG CỰC MẠNH
+        bodyAngularVelocity.AngularVelocity = Vector3.new(
+            spinSpeed + wobbleX,
+            spinSpeed + wobbleY,
+            spinSpeed + wobbleZ
+        )
+        
+        -- Xoay thêm cho chắc
+        humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(
+            math.rad(spinSpeed + wobbleX), 
+            math.rad(spinSpeed + wobbleY), 
+            math.rad(spinSpeed + wobbleZ)
+        )
+        
+        -- Set velocity cho HumanoidRootPart trực tiếp
+        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(
+            math.random(-300, 300),
+            math.random(-300, 300),
+            math.random(-300, 300)
+        )
+        
+        humanoidRootPart.AssemblyAngularVelocity = Vector3.new(
+            spinSpeed + wobbleX,
+            spinSpeed + wobbleY,
+            spinSpeed + wobbleZ
+        )
+        
+        -- Kiểm tra nếu target bị văng CỰC MẠNH
+        if isPlayerFlung(currentTarget) then
+            if autoFlingAll then
+                -- Tìm target tiếp theo
+                local nextTarget = nil
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= player and p.Character and not targetedPlayers[p.Name] then
+                        nextTarget = p
+                        break
+                    end
+                end
+                
+                if nextTarget then
+                    targetedPlayers[currentTarget.Name] = true
+                    wait(0.5)
+                    startFling(nextTarget)
+                else
+                    -- Hết người để fling
+                    stopFling()
+                    autoFlingAll = false
+                    targetedPlayers = {}
+                end
+            end
+        end
+    end)
+end
+
+local function stopFling()
+    isFlinging = false
+    currentTarget = nil
+    
+    if flingConnection then
+        flingConnection:Disconnect()
+        flingConnection = nil
+    end
+    
+    disableNoclip()
+    
+    -- Xóa BodyVelocity
+    if humanoidRootPart:FindFirstChild("BodyVelocity") then
+        humanoidRootPart:FindFirstChild("BodyVelocity"):Destroy()
+    end
+    
+    -- Xóa BodyAngularVelocity
+    if humanoidRootPart:FindFirstChild("BodyAngularVelocity") then
+        humanoidRootPart:FindFirstChild("BodyAngularVelocity"):Destroy()
+    end
+    
+    -- Reset velocities
+    if humanoidRootPart then
+        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    end
+    
+    -- Đặt lại camera
+    workspace.CurrentCamera.CameraSubject = humanoid
+end
+
+-- Hàm cập nhật danh sách player
+local function updatePlayerList()
+    -- Xóa tất cả button cũ
+    for _, child in pairs(PlayerListFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    -- Tạo button mới cho mỗi player
+    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local playerButton = Instance.new("TextButton")
+            playerButton.Name = otherPlayer.Name
+            playerButton.Parent = PlayerListFrame
+            playerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            playerButton.BorderSizePixel = 0
+            playerButton.Size = UDim2.new(1, -10, 0, 35)
+            playerButton.Font = Enum.Font.Gotham
+            playerButton.Text = otherPlayer.Name
+            playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            playerButton.TextSize = 16
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 8)
+            btnCorner.Parent = playerButton
+            
+            -- Xử lý click
+            playerButton.MouseButton1Click:Connect(function()
+                if currentTarget == otherPlayer then
+                    -- Dừng fling
+                    stopFling()
+                    playerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+                else
+                    -- Bắt đầu fling player này
+                    if isFlinging then
+                        stopFling()
+                    end
+                    autoFlingAll = false
+                    startFling(otherPlayer)
+                    playerButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+                end
+            end)
+            
+            -- Hover effect
+            playerButton.MouseEnter:Connect(function()
+                if currentTarget ~= otherPlayer then
+                    playerButton:TweenSize(UDim2.new(1, -5, 0, 35), "Out", "Quad", 0.2, true)
+                end
+            end)
+            
+            playerButton.MouseLeave:Connect(function()
+                if currentTarget ~= otherPlayer then
+                    playerButton:TweenSize(UDim2.new(1, -10, 0, 35), "In", "Quad", 0.2, true)
+                end
+            end)
+        end
+    end
+    
+    -- Cập nhật canvas size
+    PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+end
+
+-- Xử lý nút Fling All
+FlingAllButton.MouseButton1Click:Connect(function()
+    if autoFlingAll then
+        -- Dừng fling all
+        autoFlingAll = false
+        stopFling()
+        targetedPlayers = {}
+        FlingAllButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        FlingAllButton.Text = "FLING ALL"
+    else
+        -- Bắt đầu fling all
+        autoFlingAll = true
+        targetedPlayers = {}
+        FlingAllButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        FlingAllButton.Text = "STOP FLING"
+        
+        -- Tìm player đầu tiên
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= player and p.Character then
+                startFling(p)
+                break
+            end
+        end
+    end
+end)
+
+-- Hover effect cho FlingAllButton
+FlingAllButton.MouseEnter:Connect(function()
+    FlingAllButton:TweenSize(UDim2.new(0.85, 0, 0, 50), "Out", "Quad", 0.2, true)
+end)
+
+FlingAllButton.MouseLeave:Connect(function()
+    FlingAllButton:TweenSize(UDim2.new(0.8, 0, 0, 45), "In", "Quad", 0.2, true)
+end)
+
+-- Cập nhật danh sách khi có player mới
+game.Players.PlayerAdded:Connect(updatePlayerList)
+game.Players.PlayerRemoving:Connect(updatePlayerList)
+
+-- Cập nhật danh sách ban đầu
+updatePlayerList()
+
+-- Xử lý khi character respawn
+player.CharacterAdded:Connect(function(char)
+    character = char
+    humanoidRootPart = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:WaitForChild("Humanoid")
+    stopFling()
+    autoFlingAll = false
+    targetedPlayers = {}
+end)
+
+print("MC Meme Edit Fling Script loaded!")
