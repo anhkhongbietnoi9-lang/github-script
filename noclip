@@ -1,0 +1,222 @@
+-- Noclip Script với GUI đẹp
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local noclipEnabled = false
+local noclipConnection
+
+-- Tạo ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NoclipGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Tạo Frame chính (nút toggle)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 180, 0, 70)
+mainFrame.Position = UDim2.new(0.5, -90, 0.1, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+-- Bo tròn góc
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 15)
+corner.Parent = mainFrame
+
+-- Shadow effect
+local shadow = Instance.new("ImageLabel")
+shadow.Name = "Shadow"
+shadow.Size = UDim2.new(1, 30, 1, 30)
+shadow.Position = UDim2.new(0, -15, 0, -15)
+shadow.BackgroundTransparency = 1
+shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+shadow.ImageTransparency = 0.7
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(10, 10, 10, 10)
+shadow.ZIndex = 0
+shadow.Parent = mainFrame
+
+-- Gradient background
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 60)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
+}
+gradient.Rotation = 45
+gradient.Parent = mainFrame
+
+-- Title Label
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(1, -20, 0, 25)
+titleLabel.Position = UDim2.new(0, 10, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "✨ NOCLIP"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+-- Toggle Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 160, 0, 35)
+toggleButton.Position = UDim2.new(0.5, -80, 0, 32)
+toggleButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+toggleButton.BorderSizePixel = 0
+toggleButton.Text = "OFF"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 18
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.AutoButtonColor = false
+toggleButton.Parent = mainFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 10)
+buttonCorner.Parent = toggleButton
+
+-- Button gradient
+local buttonGradient = Instance.new("UIGradient")
+buttonGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 70, 70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 40, 40))
+}
+buttonGradient.Rotation = 90
+buttonGradient.Parent = toggleButton
+
+-- Status Icon
+local statusIcon = Instance.new("TextLabel")
+statusIcon.Name = "StatusIcon"
+statusIcon.Size = UDim2.new(0, 20, 0, 20)
+statusIcon.Position = UDim2.new(0, 10, 0.5, -10)
+statusIcon.BackgroundTransparency = 1
+statusIcon.Text = "⭕"
+statusIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusIcon.TextSize = 16
+statusIcon.Font = Enum.Font.GothamBold
+statusIcon.Parent = toggleButton
+
+-- Hàm noclip
+local function enableNoclip()
+    noclipConnection = RunService.Stepped:Connect(function()
+        if character and character.Parent then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    if character and character.Parent then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+-- Animation khi hover
+toggleButton.MouseEnter:Connect(function()
+    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(toggleButton, tweenInfo, {Size = UDim2.new(0, 165, 0, 37)})
+    tween:Play()
+end)
+
+toggleButton.MouseLeave:Connect(function()
+    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(toggleButton, tweenInfo, {Size = UDim2.new(0, 160, 0, 35)})
+    tween:Play()
+end)
+
+-- Toggle function
+toggleButton.MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    
+    -- Animation click
+    local clickTween = TweenService:Create(toggleButton, TweenInfo.new(0.1), {Size = UDim2.new(0, 155, 0, 33)})
+    clickTween:Play()
+    clickTween.Completed:Wait()
+    
+    local releaseTween = TweenService:Create(toggleButton, TweenInfo.new(0.1), {Size = UDim2.new(0, 160, 0, 35)})
+    releaseTween:Play()
+    
+    if noclipEnabled then
+        -- ON state
+        toggleButton.Text = "ON"
+        statusIcon.Text = "✅"
+        
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TweenService:Create(toggleButton, tweenInfo, {BackgroundColor3 = Color3.fromRGB(50, 220, 100)}):Play()
+        TweenService:Create(buttonGradient, tweenInfo, {
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(70, 255, 120)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 200, 80))
+            }
+        }):Play()
+        
+        enableNoclip()
+    else
+        -- OFF state
+        toggleButton.Text = "OFF"
+        statusIcon.Text = "⭕"
+        
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TweenService:Create(toggleButton, tweenInfo, {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play()
+        TweenService:Create(buttonGradient, tweenInfo, {
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 70, 70)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 40, 40))
+            }
+        }):Play()
+        
+        disableNoclip()
+    end
+end)
+
+-- Cleanup khi character respawn
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    
+    if noclipEnabled then
+        disableNoclip()
+        wait(0.5)
+        enableNoclip()
+    end
+end)
+
+-- Animation entrance
+mainFrame.Size = UDim2.new(0, 0, 0, 0)
+mainFrame.Position = UDim2.new(0.5, 0, 0.1, 0)
+
+local entranceTween = TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 180, 0, 70),
+    Position = UDim2.new(0.5, -90, 0.1, 0)
+})
+entranceTween:Play()
+
+print("✅ Noclip GUI loaded successfully!")
