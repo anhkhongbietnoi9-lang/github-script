@@ -1,0 +1,429 @@
+-- MC Auto Farm Script
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Variables
+local autoFarmEnabled = false
+local currentTarget = nil
+local farmConnection = nil
+local skills = {"Flowing Water", "Lethal Whirlwind Stream", "Hunter's Grasp", "Prey's Peril"}
+
+-- Create ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MCAutoFarm"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Rainbow gradient animation
+local function createRainbowGradient()
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 127, 0)),
+        ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 0)),
+        ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+        ColorSequenceKeypoint.new(0.83, Color3.fromRGB(75, 0, 130)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(148, 0, 211))
+    })
+    
+    local rotation = 0
+    RunService.RenderStepped:Connect(function()
+        rotation = (rotation + 2) % 360
+        gradient.Rotation = rotation
+    end)
+    
+    return gradient
+end
+
+-- Create circular menu button
+local MenuButton = Instance.new("Frame")
+MenuButton.Name = "MenuButton"
+MenuButton.Size = UDim2.new(0, 80, 0, 80)
+MenuButton.Position = UDim2.new(0.5, -40, 0.1, 0)
+MenuButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MenuButton.BorderSizePixel = 0
+MenuButton.Parent = ScreenGui
+
+local MenuCorner = Instance.new("UICorner")
+MenuCorner.CornerRadius = UDim.new(1, 0)
+MenuCorner.Parent = MenuButton
+
+local MenuStroke = Instance.new("UIStroke")
+MenuStroke.Thickness = 3
+MenuStroke.Parent = MenuButton
+createRainbowGradient().Parent = MenuStroke
+
+local MenuText = Instance.new("TextLabel")
+MenuText.Size = UDim2.new(1, 0, 1, 0)
+MenuText.BackgroundTransparency = 1
+MenuText.Text = "MC"
+MenuText.TextColor3 = Color3.fromRGB(255, 255, 255)
+MenuText.TextScaled = true
+MenuText.Font = Enum.Font.GothamBold
+MenuText.Parent = MenuButton
+
+-- Make menu draggable
+local dragging, dragInput, dragStart, startPos
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    MenuButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MenuButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MenuButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MenuButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateDrag(input)
+    end
+end)
+
+-- Create main GUI panel
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainFrame.BackgroundTransparency = 0.3
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 3
+MainStroke.Parent = MainFrame
+createRainbowGradient().Parent = MainStroke
+
+-- Make main frame draggable
+local frameDragging, frameDragInput, frameDragStart, frameStartPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        frameDragging = true
+        frameDragStart = input.Position
+        frameStartPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                frameDragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        frameDragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == frameDragInput and frameDragging then
+        local delta = input.Position - frameDragStart
+        MainFrame.Position = UDim2.new(frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X, frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Create title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 0, 40)
+Title.Position = UDim2.new(0, 10, 0, 10)
+Title.BackgroundTransparency = 1
+Title.Text = "MC Auto Farm"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- Create close button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 40, 0, 40)
+CloseBtn.Position = UDim2.new(1, -50, 0, 10)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 24
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+
+local CloseBtnCorner = Instance.new("UICorner")
+CloseBtnCorner.CornerRadius = UDim.new(0, 8)
+CloseBtnCorner.Parent = CloseBtn
+
+-- Create Auto Farm button
+local AutoFarmBtn = Instance.new("TextButton")
+AutoFarmBtn.Size = UDim2.new(1, -40, 0, 45)
+AutoFarmBtn.Position = UDim2.new(0, 20, 0, 60)
+AutoFarmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+AutoFarmBtn.Text = "Auto Farm: OFF"
+AutoFarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoFarmBtn.TextSize = 16
+AutoFarmBtn.Font = Enum.Font.GothamBold
+AutoFarmBtn.Parent = MainFrame
+
+local FarmBtnCorner = Instance.new("UICorner")
+FarmBtnCorner.CornerRadius = UDim.new(0, 8)
+FarmBtnCorner.Parent = AutoFarmBtn
+
+-- Create Player List
+local PlayerListFrame = Instance.new("ScrollingFrame")
+PlayerListFrame.Size = UDim2.new(1, -40, 1, -130)
+PlayerListFrame.Position = UDim2.new(0, 20, 0, 120)
+PlayerListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+PlayerListFrame.BorderSizePixel = 0
+PlayerListFrame.ScrollBarThickness = 6
+PlayerListFrame.Parent = MainFrame
+
+local ListCorner = Instance.new("UICorner")
+ListCorner.CornerRadius = UDim.new(0, 8)
+ListCorner.Parent = PlayerListFrame
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0, 5)
+ListLayout.Parent = PlayerListFrame
+
+-- Function to use skills
+local function useSkills()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    -- LeftClick first
+    local clickArgs = {{Goal = "LeftClick", Mobile = true}}
+    character:WaitForChild("Communicate"):FireServer(unpack(clickArgs))
+    task.wait(0.1)
+    
+    -- Then use skills
+    for _, skillName in ipairs(skills) do
+        local skill = LocalPlayer.Backpack:FindFirstChild(skillName)
+        if skill then
+            local args = {{Tool = skill, Goal = "Console Move"}}
+            character:WaitForChild("Communicate"):FireServer(unpack(args))
+            task.wait(0.1)
+        end
+    end
+end
+
+-- Function to teleport and farm
+local function farmPlayer(target)
+    if not target or not target.Character then return end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local targetChar = target.Character
+    if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then return end
+    
+    -- Teleport above target (4m above head)
+    local targetPos = targetChar.HumanoidRootPart.Position
+    character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 4, 0)) * CFrame.Angles(math.rad(-90), 0, 0)
+    
+    -- Use skills
+    useSkills()
+end
+
+-- Auto farm loop
+local function startAutoFarm()
+    if farmConnection then
+        farmConnection:Disconnect()
+    end
+    
+    farmConnection = RunService.Heartbeat:Connect(function()
+        if autoFarmEnabled then
+            if not currentTarget then
+                -- Select random player
+                local playerList = Players:GetPlayers()
+                for _, player in ipairs(playerList) do
+                    if player ~= LocalPlayer and player.Character then
+                        currentTarget = player
+                        break
+                    end
+                end
+            end
+            
+            if currentTarget then
+                farmPlayer(currentTarget)
+            end
+        end
+    end)
+end
+
+-- Toggle auto farm
+AutoFarmBtn.MouseButton1Click:Connect(function()
+    autoFarmEnabled = not autoFarmEnabled
+    
+    if autoFarmEnabled then
+        AutoFarmBtn.Text = "Auto Farm: ON"
+        AutoFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        startAutoFarm()
+    else
+        AutoFarmBtn.Text = "Auto Farm: OFF"
+        AutoFarmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        currentTarget = nil
+        if farmConnection then
+            farmConnection:Disconnect()
+        end
+    end
+end)
+
+-- Update player list
+local function updatePlayerList()
+    for _, child in ipairs(PlayerListFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local PlayerBtn = Instance.new("TextButton")
+            PlayerBtn.Size = UDim2.new(1, -10, 0, 40)
+            
+            -- Check if player is friend
+            local isFriend = LocalPlayer:IsFriendsWith(player.UserId)
+            if isFriend then
+                PlayerBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 60) -- Green for friends
+                PlayerBtn.Text = "👥 " .. player.Name
+            else
+                PlayerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40) -- Gray for non-friends
+                PlayerBtn.Text = player.Name
+            end
+            
+            PlayerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            PlayerBtn.TextSize = 14
+            PlayerBtn.Font = Enum.Font.Gotham
+            PlayerBtn.Parent = PlayerListFrame
+            
+            local BtnCorner = Instance.new("UICorner")
+            BtnCorner.CornerRadius = UDim.new(0, 8)
+            BtnCorner.Parent = PlayerBtn
+            
+            PlayerBtn.MouseButton1Click:Connect(function()
+                if currentTarget == player then
+                    -- Stop farming this player
+                    currentTarget = nil
+                    autoFarmEnabled = false
+                    AutoFarmBtn.Text = "Auto Farm: OFF"
+                    AutoFarmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                    
+                    -- Reset color based on friend status
+                    if isFriend then
+                        PlayerBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
+                    else
+                        PlayerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    end
+                else
+                    -- Switch to this player
+                    currentTarget = player
+                    autoFarmEnabled = false
+                    AutoFarmBtn.Text = "Auto Farm: OFF"
+                    AutoFarmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                    
+                    -- Update button colors
+                    for _, btn in ipairs(PlayerListFrame:GetChildren()) do
+                        if btn:IsA("TextButton") then
+                            local btnPlayer = Players:FindFirstChild(btn.Text:gsub("👥 ", ""))
+                            if btnPlayer and LocalPlayer:IsFriendsWith(btnPlayer.UserId) then
+                                btn.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
+                            else
+                                btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                            end
+                        end
+                    end
+                    PlayerBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+                    
+                    startAutoFarm()
+                    autoFarmEnabled = true
+                end
+            end)
+        end
+    end
+    
+    PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+end
+
+-- Toggle main frame
+local guiOpen = false
+MenuButton.InputEnded:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not dragging then
+        guiOpen = not guiOpen
+        
+        if guiOpen then
+            -- Hide menu button
+            local menuFade = TweenService:Create(MenuButton, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 0, 0, 0),
+                BackgroundTransparency = 1
+            })
+            menuFade:Play()
+            menuFade.Completed:Connect(function()
+                MenuButton.Visible = false
+            end)
+            
+            -- Show GUI
+            MainFrame.Visible = true
+            MainFrame.Size = UDim2.new(0, 0, 0, 0)
+            
+            local openTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 280, 0, 320)
+            })
+            openTween:Play()
+            
+            updatePlayerList()
+        end
+    end
+end)
+
+-- Close button functionality
+CloseBtn.MouseButton1Click:Connect(function()
+    guiOpen = false
+    
+    -- Hide GUI
+    local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0)
+    })
+    closeTween:Play()
+    closeTween.Completed:Connect(function()
+        MainFrame.Visible = false
+    end)
+    
+    -- Show menu button
+    MenuButton.Visible = true
+    MenuButton.Size = UDim2.new(0, 0, 0, 0)
+    MenuButton.BackgroundTransparency = 1
+    
+    local menuShow = TweenService:Create(MenuButton, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 80, 0, 80),
+        BackgroundTransparency = 0
+    })
+    menuShow:Play()
+end)
+
+-- Update player list when players join/leave
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+
+print("MC Auto Farm Script loaded successfully!")
